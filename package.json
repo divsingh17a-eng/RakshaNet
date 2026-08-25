@@ -1,0 +1,28 @@
+{
+  "name": "rakshanet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RakshaNet - AI-Driven Multi-Hazard Risk Zonation, Carrying Capacity Assessment & Strategic Relocation (SIH 2026, PS 26191, Team Jeevan Setu)",
+  "workspaces": [
+    "backend",
+    "web",
+    "mobile"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace=backend",
+    "dev:web": "npm run dev --workspace=web",
+    "dev:mobile": "npm run start --workspace=mobile",
+    "dev:mobile-web": "npm run web --workspace=mobile",
+    "migrate": "node database/migrate.js",
+    "seed": "node database/seed.js",
+    "test": "jest --runInBand",
+    "lint": "npm run lint --workspace=backend && npm run lint --workspace=web"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "license": "MIT"
+}

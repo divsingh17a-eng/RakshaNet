@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "backend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:backend"],
+      "port": 4000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:web"],
+      "port": 5173
+    },
+    {
+      "name": "rakshanet-mobile-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:mobile-web"],
+      "port": 8081
+    }
+  ]
+}

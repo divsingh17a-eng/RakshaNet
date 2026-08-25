@@ -1,0 +1,41 @@
+{
+  "name": "rakshanet-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RakshaNet mobile app - shared Citizen/Volunteer React Native (Expo) app (SIH 2026, PS 26191, Team Jeevan Setu)",
+  "main": "index.js",
+  "dependencies": {
+    "@react-native-community/netinfo": "12.0.1",
+    "@react-navigation/bottom-tabs": "^7.18.17",
+    "@react-navigation/native": "^7.3.17",
+    "@react-navigation/native-stack": "^7.18.9",
+    "axios": "^1.19.0",
+    "expo": "~57.0.16",
+    "expo-constants": "~57.0.14",
+    "expo-crypto": "~57.0.2",
+    "expo-dev-client": "~57.0.15",
+    "expo-image-picker": "~57.0.13",
+    "expo-location": "~57.0.13",
+    "expo-secure-store": "~57.0.1",
+    "expo-sqlite": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-maps": "1.27.2",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "^0.21.2",
+    "socket.io-client": "^4.8.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "doctor": "expo-doctor",
+    "verify": "expo export --platform android --output-dir .expo-export-check",
+    "build:dev": "eas build --profile development --platform android",
+    "build:preview": "eas build --profile preview --platform android"
+  }
+}

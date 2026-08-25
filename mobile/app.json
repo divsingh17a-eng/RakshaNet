@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "RakshaNet",
+    "slug": "rakshanet-mobile",
+    "scheme": "rakshanet",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "description": "RakshaNet - disaster-risk intelligence and strategic relocation platform. Citizen and Volunteer mobile app (SIH 2026, PS 26191, Team Jeevan Setu).",
+    "primaryColor": "#DC2626",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.jeevansetu.rakshanet",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "RakshaNet uses your location to attach accurate GPS coordinates to SOS alerts, hazard reports and vulnerability reports.",
+        "NSCameraUsageDescription": "RakshaNet uses your camera to attach photo evidence to hazard and vulnerability reports.",
+        "NSPhotoLibraryUsageDescription": "RakshaNet lets you attach photos from your gallery as evidence on hazard and vulnerability reports."
+      }
+    },
+    "android": {
+      "package": "org.jeevansetu.rakshanet",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "RakshaNet uses your location to attach accurate GPS coordinates to SOS alerts and reports."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "RakshaNet lets you attach photos as evidence on hazard and vulnerability reports.",
+          "cameraPermission": "RakshaNet uses your camera to attach photo evidence to hazard and vulnerability reports."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {}
+    }
+  }
+}
