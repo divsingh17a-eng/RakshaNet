@@ -10,7 +10,10 @@ import * as SplashScreen from 'expo-splash-screen';
 // installable Android app so it can be demoed without a browser address bar.
 // It is NOT the full offline-first native app (that lives in /mobile) - it's
 // exactly the Mobile Preview, packaged.
-const MOBILE_PREVIEW_URL = 'https://sih-web-nine.vercel.app/mobile-preview';
+// ?embedded=1 tells the page to drop its desktop-only phone-frame chrome
+// (bezel, fake status bar, "browser demo" banner) - this WebView already IS
+// the phone, so that decoration would just be a phone-within-a-phone.
+const MOBILE_PREVIEW_URL = 'https://sih-web-nine.vercel.app/mobile-preview?embedded=1';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 

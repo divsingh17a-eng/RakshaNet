@@ -43,7 +43,15 @@ function getLocation() {
 
 // --- Phone chrome ------------------------------------------------------
 
-function PhoneFrame({ children }) {
+// `embedded=1` (see MOBILE_PREVIEW_URL in /mobile-preview-apk/App.js) means
+// this page is loaded inside the packaged Android app's own WebView, which
+// is already the phone - the desktop-only bezel/fake-status-bar/"browser
+// demo" banner exist purely to simulate a phone inside a browser window, so
+// they'd be a phone-within-a-phone there. Render edge-to-edge instead.
+function PhoneFrame({ children, embedded }) {
+  if (embedded) {
+    return <div className="h-screen w-screen overflow-y-auto bg-slate-50">{children}</div>;
+  }
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-100 p-6">
       <div className="flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-[10px] font-medium text-slate-500 shadow-sm">
@@ -1166,6 +1174,11 @@ function VolunteerHome({ user, onNavigate, onLogout, onUpdateUser }) {
 
 export default function MobilePreviewPage() {
   const existing = useRef(loadMobileSession()).current;
+  // Captured once on mount (not from the router's searchParams) because
+  // goToScreen below replaces the whole query string on every navigation -
+  // this flag needs to survive that for the entire session once the
+  // packaged app loads with ?embedded=1.
+  const isEmbedded = useRef(new URLSearchParams(window.location.search).get('embedded') === '1').current;
   const [phone, setPhone] = useState('');
   const [devCode, setDevCode] = useState(null);
   const [user, setUser] = useState(existing?.user || null);
@@ -1270,5 +1283,5 @@ export default function MobilePreviewPage() {
     return null;
   }
 
-  return <PhoneFrame>{renderScreen()}</PhoneFrame>;
+  return <PhoneFrame embedded={isEmbedded}>{renderScreen()}</PhoneFrame>;
 }
