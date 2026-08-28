@@ -7,6 +7,7 @@ const SafeSite = require('./safeSite.model');
 const SiteResource = require('./siteResource.model');
 const HazardReport = require('./hazardReport.model');
 const ReportMedia = require('./reportMedia.model');
+const ReportMessage = require('./reportMessage.model');
 const Verification = require('./verification.model');
 const Survey = require('./survey.model');
 const RelocationPlan = require('./relocationPlan.model');
@@ -32,6 +33,11 @@ HazardReport.belongsTo(User, { foreignKey: 'reporterId', as: 'reporter' });
 
 HazardReport.hasMany(ReportMedia, { foreignKey: 'reportId', as: 'media' });
 ReportMedia.belongsTo(HazardReport, { foreignKey: 'reportId', as: 'report' });
+
+HazardReport.hasMany(ReportMessage, { foreignKey: 'reportId', as: 'messages' });
+ReportMessage.belongsTo(HazardReport, { foreignKey: 'reportId', as: 'report' });
+User.hasMany(ReportMessage, { foreignKey: 'senderId', as: 'reportMessages' });
+ReportMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
 
 HazardReport.hasMany(Verification, { foreignKey: 'reportId', as: 'verifications' });
 Verification.belongsTo(HazardReport, { foreignKey: 'reportId', as: 'report' });
@@ -79,6 +85,7 @@ module.exports = {
   SiteResource,
   HazardReport,
   ReportMedia,
+  ReportMessage,
   Verification,
   Survey,
   RelocationPlan,

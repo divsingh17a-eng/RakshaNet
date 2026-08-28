@@ -38,7 +38,11 @@ async function createHabitation(req, res, next) {
     housingType: housingType || 'mixed',
     roadAccessQuality: roadAccessQuality || 'moderate',
     distanceToRoadKm: distanceToRoadKm || 0,
-    historicalIncidentCount: historicalIncidentCount || 0
+    historicalIncidentCount: historicalIncidentCount || 0,
+    // The model defaults isDemoData to true (seed script relies on that
+    // default) - anything an officer enters here through the Admin Console
+    // is real, so it must not carry the "DEMO DATA" badge.
+    isDemoData: false
   });
 
   res.status(201).json({ success: true, habitation });

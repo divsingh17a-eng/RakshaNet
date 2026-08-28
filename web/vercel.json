@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd .. && npm ci && npm run build --workspace=web",
+  "outputDirectory": "dist",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

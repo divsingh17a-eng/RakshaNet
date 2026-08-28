@@ -30,6 +30,8 @@ router.use('/alerts', require('./alerts.routes'));
 router.use('/exports', require('./exports.routes'));
 router.use('/sms-ivr', require('./smsIvr.routes'));
 router.use('/users', require('./users.routes'));
+router.use('/volunteers', require('./volunteers.routes'));
+router.use('/chatbot', require('./chatbot.routes'));
 
 router.get('/health', (req, res) => res.json({ success: true, status: 'ok', timestamp: new Date().toISOString() }));
 

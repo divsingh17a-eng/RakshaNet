@@ -77,6 +77,22 @@ const dispatchMessageSchema = z.object({
   message: z.string().min(1).max(500)
 });
 
+// One message in a per-report chat thread between a citizen and the
+// volunteer/staff handling their report.
+const reportMessageSchema = z.object({
+  message: z.string().min(1).max(1000)
+});
+
+// Citizen/Volunteer -> AI chatbot. `history` is the last few turns the
+// client already rendered, capped short to bound cost per request.
+const chatbotMessageSchema = z.object({
+  message: z.string().min(1).max(1000),
+  history: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string().max(2000)
+  })).max(10).optional()
+});
+
 module.exports = {
   otpRequestSchema,
   otpVerifySchema,
@@ -86,5 +102,7 @@ module.exports = {
   verificationSchema,
   relocationPlanDecisionSchema,
   updateMeSchema,
-  dispatchMessageSchema
+  dispatchMessageSchema,
+  reportMessageSchema,
+  chatbotMessageSchema
 };

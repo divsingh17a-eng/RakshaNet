@@ -61,6 +61,12 @@ module.exports = {
 
   mapsApiKey: process.env.MAPS_API_KEY,
 
+  // AI chatbot (citizen/volunteer assistant). Feature-flagged like OTP/SMS -
+  // if unset, the chatbot endpoint returns a clear "not configured" message
+  // instead of the app crashing or silently faking a response.
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+  chatbotModel: process.env.CHATBOT_MODEL || 'claude-sonnet-5',
+
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
     max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 300

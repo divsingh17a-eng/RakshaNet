@@ -1,0 +1,35 @@
+# Render Blueprint for the RakshaNet backend.
+# Deploy: connect this GitHub repo on https://dashboard.render.com/blueprints
+# and Render reads this file automatically - no manual service setup needed.
+#
+# Repo layout note: this is an npm-workspaces monorepo and backend/src
+# requires ../../shared via relative path, so the build/start commands below
+# run from the REPO ROOT (Render's default rootDir), not from backend/.
+services:
+  - type: web
+    name: rakshanet-backend
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm run start --workspace=backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: DATABASE_URL
+        sync: false # paste your Neon connection string in the Render dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SMS_IVR_WEBHOOK_SECRET
+        generateValue: true
+      - key: CLIENT_ORIGIN
+        sync: false # your deployed web URL, e.g. https://rakshanet.vercel.app
+      - key: API_BASE_URL
+        sync: false # this service's own Render URL, e.g. https://rakshanet-backend.onrender.com
+      - key: ANTHROPIC_API_KEY
+        sync: false # optional - chatbot works without it, just says "not configured"
+      - key: CHATBOT_MODEL
+        value: claude-sonnet-5

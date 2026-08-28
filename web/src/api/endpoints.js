@@ -20,16 +20,26 @@ export const recalculateRisk = () => apiClient.post('/risk/recalculate').then((r
 export const recalculateHabitationRisk = (id) => apiClient.post(`/habitations/${id}/recalculate`).then((r) => r.data);
 export const listHabitations = (params = {}) => apiClient.get('/habitations', { params }).then((r) => r.data);
 export const getHabitation = (id) => apiClient.get(`/habitations/${id}`).then((r) => r.data);
+export const createHabitation = (body) => apiClient.post('/habitations', body).then((r) => r.data);
 export const updateHabitation = (id, body) => apiClient.patch(`/habitations/${id}`, body).then((r) => r.data);
 
 // --- Safe sites & resources ---
 export const listSafeSites = (params = {}) => apiClient.get('/safe-sites', { params }).then((r) => r.data);
 export const getSafeSite = (id) => apiClient.get(`/safe-sites/${id}`).then((r) => r.data);
+export const createSafeSite = (body) => apiClient.post('/safe-sites', body).then((r) => r.data);
+export const updateSafeSite = (id, body) => apiClient.patch(`/safe-sites/${id}`, body).then((r) => r.data);
+export const upsertSiteResource = (id, body) => apiClient.patch(`/safe-sites/${id}/resources`, body).then((r) => r.data);
 export const checkSiteCapacity = (id, incomingPopulation) =>
   apiClient.post(`/safe-sites/${id}/capacity-check`, { incomingPopulation }).then((r) => r.data);
 export const getRedistributionSuggestions = (district) =>
   apiClient.get('/safe-sites/redistribution', { params: { district } }).then((r) => r.data);
 export const getResourceMonitor = (params = {}) => apiClient.get('/resources', { params }).then((r) => r.data);
+
+// --- Users & volunteers (admin management) ---
+export const listUsers = (params = {}) => apiClient.get('/users', { params }).then((r) => r.data);
+export const updateUserRole = (id, role) => apiClient.patch(`/users/${id}/role`, { role }).then((r) => r.data);
+export const setUserStatus = (id, status) => apiClient.patch(`/users/${id}/status`, { status }).then((r) => r.data);
+export const getOnDutyCount = (params = {}) => apiClient.get('/volunteers/on-duty', { params }).then((r) => r.data);
 
 // --- Relocation ---
 export const recommendRelocation = (habitationId, priorityPopulation) =>

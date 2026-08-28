@@ -311,6 +311,304 @@ function AlertsScreen({ onBack }) {
   );
 }
 
+// Aggregate-only "is help available" indicator for citizens - a count, never
+// individual volunteer identity/location (see GET /api/volunteers/on-duty).
+function OnDutyBanner() {
+  const [status, setStatus] = useState(null);
+
+  useEffect(() => {
+    mobileApiClient.get('/volunteers/on-duty').then(({ data }) => setStatus(data)).catch(() => setStatus(null));
+  }, []);
+
+  if (!status) return null;
+
+  return (
+    <div className={`mb-4 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-semibold ${
+      status.onDuty > 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'
+    }`}
+    >
+      <span className={`h-2 w-2 rounded-full ${status.onDuty > 0 ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+      {status.onDuty > 0
+        ? `${status.onDuty} volunteer${status.onDuty === 1 ? '' : 's'} on duty right now`
+        : 'No volunteers currently marked On Duty'}
+    </div>
+  );
+}
+
+// Every active connection (report threads where the other side has actually
+// replied) at a glance, with one-tap call + chat - so reaching someone you're
+// already talking to doesn't require re-finding the right report first.
+// Available 24/7: nothing here expires or requires re-verification each time.
+function ConnectionsList({ onOpenThread }) {
+  const [connections, setConnections] = useState(null);
+
+  useEffect(() => {
+    mobileApiClient.get('/reports/connections').then(({ data }) => setConnections(data.connections)).catch(() => setConnections([]));
+  }, []);
+
+  if (!connections || connections.length === 0) return null;
+
+  return (
+    <div className="mb-4">
+      <p className="mb-2 text-xs font-bold text-slate-700">🔗 Active Connections</p>
+      <div className="space-y-2">
+        {connections.map((c) => (
+          <div key={c.reportId} className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-2.5">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="truncate text-xs font-semibold text-emerald-900">
+                  {c.otherParty.name} <span className="capitalize opacity-70">({c.otherParty.role})</span>
+                </span>
+                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                  c.reportStatus === 'verified' ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'
+                }`}
+                >
+                  {c.reportStatus === 'verified' ? '✓' : '⏳'}
+                </span>
+              </div>
+              <p className="truncate text-[10px] text-emerald-700">
+                {HAZARD_TYPE_LABELS[c.reportType] || c.reportType} · {c.lastMessage.message}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {c.otherParty.phone && (
+                <a
+                  href={`tel:${c.otherParty.phone}`}
+                  className="rounded-full bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  📞
+                </a>
+              )}
+              <button
+                onClick={() => onOpenThread(c.reportId)}
+                className="rounded-full bg-white px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 shadow-sm"
+              >
+                💬
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Two-way chat thread tied to one hazard report - citizen <-> volunteer/staff.
+// Lightly polls while open so it feels live without needing a socket subscription here.
+function ReportThreadScreen({ reportId, onBack }) {
+  const [messages, setMessages] = useState(null);
+  const [reportStatus, setReportStatus] = useState(null);
+  const [text, setText] = useState('');
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    try {
+      const { data } = await mobileApiClient.get(`/reports/${reportId}/messages`);
+      setMessages(data.messages);
+      setReportStatus(data.report?.status ?? null);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reportId]);
+
+  async function send() {
+    if (!text.trim()) return;
+    setBusy(true);
+    try {
+      await mobileApiClient.post(`/reports/${reportId}/messages`, { message: text.trim() });
+      setText('');
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const session = loadMobileSession();
+  const myId = session?.user?.id;
+
+  // The other participant in this thread (the volunteer, from the citizen's
+  // side, or vice versa) - whoever most recently sent a message that wasn't
+  // mine. Only appears once they've actually replied, i.e. a real connection.
+  const otherParty = messages
+    ?.slice()
+    .reverse()
+    .find((m) => m.senderId !== myId)?.sender;
+  const isVerified = reportStatus === 'verified';
+
+  // Deliberately NOT gated behind verification - once a volunteer has
+  // actually responded, that live connection is what matters most in a
+  // disaster. The verification badge stays visible as context (so both
+  // sides know whether it's been formally confirmed yet) without ever
+  // blocking the call button.
+  return (
+    <div className="flex h-full flex-col">
+      <TopBar title="Report Thread" onBack={onBack} />
+
+      <div className={`flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-2.5 text-xs ${
+        otherParty ? 'bg-emerald-50' : 'bg-slate-50'
+      }`}
+      >
+        {otherParty ? (
+          <>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+              <span className="truncate font-semibold text-emerald-800">
+                Connected with {otherParty.name} <span className="capitalize opacity-80">({otherParty.role})</span>
+              </span>
+              <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                isVerified ? 'bg-emerald-200 text-emerald-800' : 'bg-amber-200 text-amber-800'
+              }`}
+              >
+                {isVerified ? '✓ Verified' : '⏳ Pending verification'}
+              </span>
+            </div>
+            {otherParty.phone && (
+              <a
+                href={`tel:${otherParty.phone}`}
+                className="shrink-0 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white"
+              >
+                📞 Call
+              </a>
+            )}
+          </>
+        ) : (
+          <div className="flex items-center gap-1.5">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-slate-400" />
+            <span className="font-medium text-slate-500">Waiting for a volunteer to respond…</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto p-4">
+        <ErrorBanner message={error} />
+        {messages === null && !error && <p className="text-xs text-slate-400">Loading…</p>}
+        {messages?.length === 0 && <p className="text-xs text-slate-400">No messages yet - say hello.</p>}
+        {messages?.map((m) => {
+          const mine = m.senderId === myId;
+          return (
+            <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs ${
+                mine ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-800'
+              }`}
+              >
+                {!mine && <p className="mb-0.5 text-[10px] font-bold capitalize opacity-70">{m.sender?.name || m.senderRole}</p>}
+                <p>{m.message}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center gap-2 border-t border-slate-200 bg-white p-3">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+          placeholder="Type a message…"
+          className="min-w-0 flex-1 rounded-full border border-slate-300 px-3 py-2 text-xs outline-none"
+        />
+        <button
+          onClick={send}
+          disabled={busy || !text.trim()}
+          className="shrink-0 rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Real Claude-powered assistant, grounded only in this user's own live app
+// data (their reports, on-duty volunteer count, nearby safe sites) - see
+// backend/src/services/chatbot.service.js. Answers "not configured" honestly
+// if no API key is set, rather than faking a response.
+function ChatbotScreen({ onBack, user }) {
+  const isVolunteer = user?.role === ROLES.VOLUNTEER;
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: isVolunteer
+        ? "Hi, I'm the RakshaNet Assistant. Ask me how many tasks are pending, nearby safe site capacity, or on-duty volunteer numbers."
+        : "Hi, I'm the RakshaNet Assistant. Ask me about your report status, nearby safe sites, or whether volunteers are available."
+    }
+  ]);
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
+
+  async function send() {
+    const outgoing = text.trim();
+    if (!outgoing) return;
+    const history = messages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+    setMessages((prev) => [...prev, { role: 'user', content: outgoing }]);
+    setText('');
+    setBusy(true);
+    setError(null);
+    try {
+      const { data } = await mobileApiClient.post('/chatbot/message', { message: outgoing, history });
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.reply }]);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <TopBar title="🤖 RakshaNet Assistant" onBack={onBack} />
+      <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto p-4">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs ${
+              m.role === 'user' ? 'bg-orange-500 text-white' : 'bg-white border border-slate-200 text-slate-800'
+            }`}
+            >
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {busy && <p className="text-[11px] text-slate-400">Thinking…</p>}
+        <ErrorBanner message={error} />
+      </div>
+      <div className="flex items-center gap-2 border-t border-slate-200 bg-white p-3">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && send()}
+          placeholder="Ask a question…"
+          className="min-w-0 flex-1 rounded-full border border-slate-300 px-3 py-2 text-xs outline-none"
+        />
+        <button
+          onClick={send}
+          disabled={busy || !text.trim()}
+          className="shrink-0 rounded-full bg-orange-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50"
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Citizen screens --------------------------------------------------------
 
 function SosScreen({ onBack }) {
@@ -437,12 +735,16 @@ function ReportFormScreen({ onBack, onSubmitted, kind }) {
   );
 }
 
-function MyReportsScreen({ onBack }) {
+function MyReportsScreen({ onBack, onOpenThread }) {
   const [reports, setReports] = useState(null);
+  const [connectionsByReport, setConnectionsByReport] = useState({});
   const [error, setError] = useState(null);
 
   useEffect(() => {
     mobileApiClient.get('/reports', { params: { mine: 'true' } }).then(({ data }) => setReports(data.reports)).catch((err) => setError(err.message));
+    mobileApiClient.get('/reports/connections').then(({ data }) => {
+      setConnectionsByReport(Object.fromEntries(data.connections.map((c) => [c.reportId, c])));
+    }).catch(() => {});
   }, []);
 
   const statusStyle = {
@@ -470,6 +772,29 @@ function MyReportsScreen({ onBack }) {
             </div>
             <p className="mt-1 text-xs text-slate-500">Severity {r.severity}/5 · {new Date(r.reportedAt).toLocaleDateString()}</p>
             {r.description && <p className="mt-1 text-xs text-slate-600">{r.description}</p>}
+            <div className="mt-2 flex items-center gap-1.5">
+              <button
+                onClick={() => onOpenThread(r.id)}
+                className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                💬 Message about this report
+              </button>
+              {connectionsByReport[r.id] && (
+                <>
+                  <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                    🔗 Connected with {connectionsByReport[r.id].otherParty.name}
+                  </span>
+                  {connectionsByReport[r.id].otherParty.phone && (
+                    <a
+                      href={`tel:${connectionsByReport[r.id].otherParty.phone}`}
+                      className="rounded-full bg-emerald-600 px-2.5 py-1.5 text-[11px] font-semibold text-white"
+                    >
+                      📞
+                    </a>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -485,6 +810,9 @@ function CitizenHome({ user, onNavigate, onLogout }) {
         right={<button onClick={onLogout} className="text-xs text-slate-400">Logout</button>}
       />
       <div className="p-4">
+        <OnDutyBanner />
+        <ConnectionsList onOpenThread={(reportId) => onNavigate('report-thread', { reportId })} />
+
         <button
           onClick={() => onNavigate('sos')}
           className="mb-4 flex w-full items-center justify-between rounded-2xl bg-red-600 px-5 py-4 text-white shadow-lg"
@@ -498,6 +826,7 @@ function CitizenHome({ user, onNavigate, onLogout }) {
           <TileButton icon="🏚️" label="Report Vulnerability" onClick={() => onNavigate('report-vulnerability')} />
           <TileButton icon="📋" label="My Reports" onClick={() => onNavigate('my-reports')} />
           <TileButton icon="🔔" label="Alerts" onClick={() => onNavigate('alerts')} />
+          <TileButton icon="🤖" label="Ask Assistant" onClick={() => onNavigate('chatbot')} tone="slate" />
         </div>
 
         <p className="mt-6 rounded-xl bg-blue-50 p-3 text-[11px] text-blue-700">
@@ -511,7 +840,7 @@ function CitizenHome({ user, onNavigate, onLogout }) {
 
 // --- Volunteer screens --------------------------------------------------------
 
-function TasksScreen({ onBack }) {
+function TasksScreen({ onBack, onOpenThread }) {
   const [reports, setReports] = useState(null);
   const [error, setError] = useState(null);
   const [decidingId, setDecidingId] = useState(null);
@@ -594,6 +923,12 @@ function TasksScreen({ onBack }) {
                 ⧉ Duplicate
               </button>
             </div>
+            <button
+              onClick={() => onOpenThread(r.id)}
+              className="mt-1.5 w-full rounded-lg bg-slate-100 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200"
+            >
+              💬 Message the citizen
+            </button>
           </div>
         ))}
       </div>
@@ -762,6 +1097,7 @@ function VolunteerHome({ user, onNavigate, onLogout }) {
       />
       <div className="space-y-4 p-4">
         <IncidentTicker />
+        <ConnectionsList onOpenThread={(reportId) => onNavigate('report-thread', { reportId })} />
 
         <div className="grid grid-cols-2 gap-3">
           <TileButton
@@ -773,6 +1109,7 @@ function VolunteerHome({ user, onNavigate, onLogout }) {
           <TileButton icon="🗺️" label="Tactical Map" onClick={() => onNavigate('tactical-map')} />
           <TileButton icon="📝" label="Field Survey" onClick={() => onNavigate('report-vulnerability')} tone="slate" />
           <TileButton icon="🔔" label="Alerts" onClick={() => onNavigate('alerts')} />
+          <TileButton icon="🤖" label="Ask Assistant" onClick={() => onNavigate('chatbot')} tone="slate" />
         </div>
 
         <p className="rounded-xl bg-blue-50 p-3 text-[11px] text-blue-700">
@@ -801,13 +1138,13 @@ export default function MobilePreviewPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const screen = user ? (searchParams.get('screen') || 'home') : preAuthScreen;
 
-  function goToScreen(next, options) {
+  function goToScreen(next, params = {}) {
     if (!user) {
       setPreAuthScreen(next);
       return;
     }
-    if (next === 'home') setSearchParams({}, options);
-    else setSearchParams({ screen: next }, options);
+    if (next === 'home') setSearchParams({});
+    else setSearchParams({ screen: next, ...params });
   }
 
   function logout() {
@@ -861,10 +1198,28 @@ export default function MobilePreviewPage() {
         </div>
       );
     }
-    if (screen === 'my-reports') return <MyReportsScreen onBack={() => goToScreen('home')} />;
+    if (screen === 'my-reports') {
+      return (
+        <MyReportsScreen
+          onBack={() => goToScreen('home')}
+          onOpenThread={(reportId) => goToScreen('report-thread', { reportId })}
+        />
+      );
+    }
     if (screen === 'alerts') return <AlertsScreen onBack={() => goToScreen('home')} />;
-    if (screen === 'tasks') return <TasksScreen onBack={() => goToScreen('home')} />;
+    if (screen === 'tasks') {
+      return (
+        <TasksScreen
+          onBack={() => goToScreen('home')}
+          onOpenThread={(reportId) => goToScreen('report-thread', { reportId })}
+        />
+      );
+    }
     if (screen === 'tactical-map') return <TacticalMapScreen onBack={() => goToScreen('home')} />;
+    if (screen === 'report-thread') {
+      return <ReportThreadScreen reportId={searchParams.get('reportId')} onBack={() => goToScreen('home')} />;
+    }
+    if (screen === 'chatbot') return <ChatbotScreen user={user} onBack={() => goToScreen('home')} />;
 
     return null;
   }

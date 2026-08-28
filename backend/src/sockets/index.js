@@ -43,6 +43,14 @@ function initSockets(httpServer) {
       }
     });
 
+    // Report chat thread (citizen <-> volunteer/staff) - joined while a
+    // report's message thread is open so new messages arrive live.
+    socket.on('join:report', (reportId) => {
+      if (typeof reportId === 'string' && reportId.length > 0) {
+        socket.join(`report:${reportId}`);
+      }
+    });
+
     socket.on('disconnect', () => {
       logger.debug(`Socket disconnected: ${socket.id}`);
     });

@@ -14,6 +14,7 @@ import RoutesResponsePage from './pages/RoutesResponsePage';
 import VerificationQueuePage from './pages/VerificationQueuePage';
 import ReportsExportPage from './pages/ReportsExportPage';
 import AuditLogPage from './pages/AuditLogPage';
+import AdminConsolePage from './pages/AdminConsolePage';
 import MobilePreviewPage from './pages/MobilePreviewPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { ROLES } from './constants';
@@ -53,6 +54,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={[ROLES.ADMIN]}>
                   <AuditLogPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin"
+              element={
+                <ProtectedRoute roles={[ROLES.ADMIN, ROLES.SDMA_OFFICER, ROLES.DDMA_OFFICER]}>
+                  <AdminConsolePage />
                 </ProtectedRoute>
               }
             />

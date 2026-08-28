@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/routes-response', label: 'Routes & Response', icon: '🚨' },
   { to: '/verification', label: 'Verification Queue', icon: '✅' },
   { to: '/reports', label: 'Reports & Export', icon: '📄' },
+  { to: '/admin', label: 'Admin Console', icon: '🛠️', roles: [ROLES.ADMIN, ROLES.SDMA_OFFICER, ROLES.DDMA_OFFICER] },
   { to: '/audit', label: 'Audit Log', icon: '🛡️', roles: [ROLES.ADMIN] }
 ];
 

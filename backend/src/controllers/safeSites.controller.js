@@ -52,7 +52,11 @@ async function createSafeSite(req, res, next) {
     totalCapacity: totalCapacity || 0,
     safetyRating: safetyRating ?? 80,
     accessibilityRating: accessibilityRating ?? 70,
-    powerBackup: Boolean(powerBackup)
+    powerBackup: Boolean(powerBackup),
+    // The model defaults isDemoData to true (the seed script relies on that
+    // default) - a shelter an officer adds here through the Admin Console is
+    // real, so it must not carry the "DEMO DATA" badge.
+    isDemoData: false
   });
 
   await seedDefaultResources(site.id, resources || []);
