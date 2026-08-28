@@ -1079,7 +1079,47 @@ function TacticalMapScreen({ onBack }) {
   );
 }
 
-function VolunteerHome({ user, onNavigate, onLogout }) {
+// Real on-duty status (User.metadata.isOnDuty via PATCH /api/me) - read
+// elsewhere in the app (chatbot context, the on-duty count citizens see, the
+// Admin Console's on-duty dot), so this toggle is the only place a volunteer
+// can actually set it, not a preview-only decoration.
+function DutyToggle({ user, onUpdateUser }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const isOnDuty = Boolean(user.metadata?.isOnDuty);
+
+  async function toggle() {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { data } = await mobileApiClient.patch('/me', { isOnDuty: !isOnDuty });
+      onUpdateUser?.(data.user);
+    } catch (err) {
+      setError(err.message || 'Could not update duty status');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end">
+      <button
+        onClick={toggle}
+        disabled={busy}
+        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition disabled:opacity-60 ${
+          isOnDuty ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : 'border-slate-300 bg-slate-100 text-slate-500'
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full ${isOnDuty ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+        {busy ? 'Updating…' : isOnDuty ? 'On Duty' : 'Off Duty'}
+      </button>
+      {error && <p className="mt-1 text-[10px] text-red-500">{error}</p>}
+    </div>
+  );
+}
+
+function VolunteerHome({ user, onNavigate, onLogout, onUpdateUser }) {
   const [taskCount, setTaskCount] = useState(null);
 
   useEffect(() => {
@@ -1093,7 +1133,12 @@ function VolunteerHome({ user, onNavigate, onLogout }) {
     <div>
       <TopBar
         title={`Hi, ${user.name || 'Volunteer'}`}
-        right={<button onClick={onLogout} className="text-xs text-slate-400">Logout</button>}
+        right={
+          <div className="flex items-center gap-2">
+            <DutyToggle user={user} onUpdateUser={onUpdateUser} />
+            <button onClick={onLogout} className="text-xs text-slate-400">Logout</button>
+          </div>
+        }
       />
       <div className="space-y-4 p-4">
         <IncidentTicker />
@@ -1155,6 +1200,11 @@ export default function MobilePreviewPage() {
     setSearchParams({}, { replace: true });
   }
 
+  function updateUser(nextUser) {
+    setUser(nextUser);
+    saveMobileSession({ accessToken: loadMobileSession()?.accessToken, user: nextUser });
+  }
+
   function renderScreen() {
     if (!user) {
       if (screen === 'otp') {
@@ -1172,7 +1222,7 @@ export default function MobilePreviewPage() {
 
     if (screen === 'home') {
       return user.role === ROLES.VOLUNTEER
-        ? <VolunteerHome user={user} onNavigate={goToScreen} onLogout={logout} />
+        ? <VolunteerHome user={user} onNavigate={goToScreen} onLogout={logout} onUpdateUser={updateUser} />
         : <CitizenHome user={user} onNavigate={goToScreen} onLogout={logout} />;
     }
     if (screen === 'sos') return <SosScreen onBack={() => goToScreen('home')} />;

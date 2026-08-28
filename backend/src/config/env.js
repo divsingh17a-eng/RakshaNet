@@ -11,7 +11,15 @@ function required(name, fallback) {
 module.exports = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT, 10) || 4000,
-  clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  // Comma-separated in local dev so the web app (5173) and the Expo web
+  // preview (8081) can both call the API at once; production sets this to a
+  // single deployed origin (e.g. the Vercel URL). `clientOrigin` is kept as
+  // the raw value for logging/display; `clientOrigins` is what CORS actually
+  // checks against.
+  clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173,http://localhost:8081',
+  get clientOrigins() {
+    return this.clientOrigin.split(',').map((o) => o.trim()).filter(Boolean);
+  },
   apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:4000',
 
   databaseUrl: required('DATABASE_URL'),

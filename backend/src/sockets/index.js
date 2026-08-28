@@ -15,7 +15,7 @@ const env = require('../config/env');
  */
 function initSockets(httpServer) {
   const io = new Server(httpServer, {
-    cors: { origin: env.clientOrigin, credentials: true }
+    cors: { origin: env.clientOrigins, credentials: true }
   });
 
   io.use((socket, next) => {
