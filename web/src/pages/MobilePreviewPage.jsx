@@ -206,10 +206,6 @@ function PhoneEntryScreen({ onOtpSent }) {
         </p>
       </div>
       <ErrorBanner message={error} />
-
-      <a href="/login" className="mt-10 text-[11px] font-medium text-slate-400 hover:text-slate-600">
-        ← Officer / Admin? Go to the Command Center
-      </a>
     </div>
   );
 }
