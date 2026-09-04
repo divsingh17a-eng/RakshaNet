@@ -18,7 +18,11 @@ export default function Drawer({ open, onClose, title, subtitle, children, width
   return (
     <div
       className={clsx(
-        'fixed inset-0 z-40 transition-opacity',
+        // Leaflet's own panes (popupPane/tooltipPane/markerPane) use
+        // z-index up to 700 - anything lower here leaves an open map popup
+        // visually and click-wise stuck on top of the drawer whenever both
+        // are open at once (e.g. Risk Map's marker popups).
+        'fixed inset-0 z-[1000] transition-opacity',
         open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
       )}
       aria-hidden={!open}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { getRiskMap, recalculateRisk } from '../api/endpoints';
@@ -17,18 +17,28 @@ const INDIA_CENTER = [20.5937, 78.9629];
 // MapContainer's `center`/`zoom` props are only read once, at mount - they
 // are NOT reactive, so they can't be used to recenter the map once the API
 // data (which arrives asynchronously) is known. This child component uses
-// the imperative Leaflet map instance instead, and re-fits the view every
-// time the marker set actually changes.
+// the imperative Leaflet map instance instead, and fits the view once the
+// first batch of markers is known.
+//
+// Deliberately fits ONLY ONCE (guarded by hasFit): habitations/safeSites
+// arrays get a new reference on every live reload (recalculate, socket
+// events like risk:recalculated/safeSite:updated from any user), and
+// re-fitting on every one of those would yank an officer's view back out
+// to "fit everything" mid-use, discarding wherever they'd manually panned
+// or zoomed to.
 function FitDataBounds({ habitations, safeSites }) {
   const map = useMap();
+  const hasFit = useRef(false);
 
   useEffect(() => {
+    if (hasFit.current) return;
     const points = [...(habitations || []), ...(safeSites || [])]
       .map((entity) => entity.location?.coordinates)
       .filter(Boolean)
       .map(([lng, lat]) => [lat, lng]);
 
     if (points.length === 0) return;
+    hasFit.current = true;
     if (points.length === 1) {
       map.setView(points[0], 11);
       return;

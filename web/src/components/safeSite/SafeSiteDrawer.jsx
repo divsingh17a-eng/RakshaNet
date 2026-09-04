@@ -4,6 +4,7 @@ import SatelliteThumb from '../common/SatelliteThumb';
 import { ResourceStatusBadge, DemoDataBadge } from '../common/Badge';
 import { ErrorState, LoadingState } from '../common/QueryState';
 import { useApiQuery } from '../../hooks/useApiQuery';
+import { useSocketEvent } from '../../context/SocketContext';
 import { getSafeSite } from '../../api/endpoints';
 import { RESOURCE_TYPE_LABELS, RESOURCE_TYPES } from '../../constants';
 import { formatNumber, formatDate, titleCase, round1 } from '../../utils/format';
@@ -14,6 +15,13 @@ export default function SafeSiteDrawer({ siteId, open, onClose }) {
     return getSafeSite(siteId);
   }, [siteId]);
   const { data, status, error, reload } = useApiQuery(fetcher, [siteId], { enabled: Boolean(siteId) });
+
+  // Live-refresh if this site's occupancy/resources change elsewhere (e.g.
+  // an officer approves a relocation plan into it) while the drawer is open -
+  // matches HabitationDrawer's risk:recalculated subscription.
+  useSocketEvent('safeSite:updated', useCallback(() => {
+    if (siteId) reload();
+  }, [siteId, reload]));
 
   return (
     <Drawer open={open} onClose={onClose} title={data?.safeSite?.name || 'Safe Site'} subtitle="Safe Site Detail">
