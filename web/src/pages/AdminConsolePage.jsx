@@ -375,12 +375,23 @@ function PeopleManager({ currentUser }) {
   const [roleFilter, setRoleFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
   const [rowBanner, setRowBanner] = useState(null); // { userId, tone, text }
+  // The Command Center login's "Quick Start" button spins up throwaway
+  // demo-*@rakshanet.local accounts so anyone can try a role instantly -
+  // hidden here by default (server-filtered) so the real roster stays
+  // readable after a long testing/demo session; never deleted, since real
+  // verifications/plans/audit entries reference them.
+  const [showTestAccounts, setShowTestAccounts] = useState(false);
 
   const fetcher = useCallback(
-    () => listUsers({ ...(roleFilter ? { role: roleFilter } : {}), ...(districtFilter ? { district: districtFilter } : {}), limit: 100 }),
-    [roleFilter, districtFilter]
+    () => listUsers({
+      ...(roleFilter ? { role: roleFilter } : {}),
+      ...(districtFilter ? { district: districtFilter } : {}),
+      ...(showTestAccounts ? { includeTestAccounts: 'true' } : {}),
+      limit: 200
+    }),
+    [roleFilter, districtFilter, showTestAccounts]
   );
-  const { data, status, error, reload } = useApiQuery(fetcher, [roleFilter, districtFilter]);
+  const { data, status, error, reload } = useApiQuery(fetcher, [roleFilter, districtFilter, showTestAccounts]);
 
   async function handleRoleChange(u, role) {
     if (role === u.role) return;
@@ -411,6 +422,7 @@ function PeopleManager({ currentUser }) {
           data={data} status={status} error={error} reload={reload}
           roleFilter={roleFilter} setRoleFilter={setRoleFilter}
           districtFilter={districtFilter} setDistrictFilter={setDistrictFilter}
+          showTestAccounts={showTestAccounts} setShowTestAccounts={setShowTestAccounts}
           readOnly
         />
       </Panel>
@@ -423,6 +435,7 @@ function PeopleManager({ currentUser }) {
         data={data} status={status} error={error} reload={reload}
         roleFilter={roleFilter} setRoleFilter={setRoleFilter}
         districtFilter={districtFilter} setDistrictFilter={setDistrictFilter}
+        showTestAccounts={showTestAccounts} setShowTestAccounts={setShowTestAccounts}
         onRoleChange={handleRoleChange}
         onStatusChange={handleStatusChange}
         rowBanner={rowBanner}
@@ -431,7 +444,10 @@ function PeopleManager({ currentUser }) {
   );
 }
 
-function UserTable({ data, status, error, reload, roleFilter, setRoleFilter, districtFilter, setDistrictFilter, onRoleChange, onStatusChange, rowBanner, readOnly }) {
+function UserTable({
+  data, status, error, reload, roleFilter, setRoleFilter, districtFilter, setDistrictFilter,
+  showTestAccounts, setShowTestAccounts, onRoleChange, onStatusChange, rowBanner, readOnly
+}) {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center gap-3">
@@ -446,6 +462,17 @@ function UserTable({ data, status, error, reload, roleFilter, setRoleFilter, dis
           onChange={(e) => setDistrictFilter(e.target.value)}
         />
         {data?.pagination && <span className="text-xs text-slate-500">{data.pagination.total} total</span>}
+        <label className="ml-auto flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 accent-brand-600"
+            checked={showTestAccounts}
+            onChange={(e) => setShowTestAccounts(e.target.checked)}
+          />
+          {!showTestAccounts && data?.hiddenTestAccounts > 0
+            ? `Show test accounts (${data.hiddenTestAccounts} hidden)`
+            : 'Show test accounts'}
+        </label>
       </div>
 
       {status === 'loading' && <LoadingState label="Loading users…" />}

@@ -1,3 +1,4 @@
+const { Op } = require('sequelize');
 const {
   sequelize, Habitation, SafeSite, SiteResource, RelocationPlan, RelocationAllocation, ResponseTask
 } = require('../models/sql');
@@ -142,9 +143,16 @@ async function generateRelocationPlans({ createdBy = null } = {}) {
 
   const plans = [];
   for (const habitation of atRiskHabitations) {
+    // Skip if this habitation already has ANY non-rejected plan - not just a
+    // still-pending one. Only checking draft/pending_approval here was the
+    // bug: re-running this (e.g. clicking "Generate All Plans" twice) created
+    // a second plan for a habitation that was already approved/completed,
+    // and if that duplicate also got approved it silently double-counted
+    // against the destination site's real occupied capacity.
     // eslint-disable-next-line no-await-in-loop
     const existing = await RelocationPlan.findOne({
-      where: { habitationId: habitation.id, status: [RELOCATION_PLAN_STATUS.DRAFT, RELOCATION_PLAN_STATUS.PENDING_APPROVAL] }
+      where: { habitationId: habitation.id, status: { [Op.ne]: RELOCATION_PLAN_STATUS.REJECTED } },
+      order: [['createdAt', 'DESC']]
     });
     if (existing) {
       plans.push(existing);

@@ -1,13 +1,24 @@
+const { Op } = require('sequelize');
 const { User, AuditLog } = require('../models/sql');
 const { ApiError } = require('../middleware/errorHandler');
 const { recordAudit } = require('../services/audit.service');
 const { ROLE_LIST } = require('../config/constants');
 
+// The Command Center login's "Quick Start" button (LoginPage.jsx
+// generateRandomAccount) creates throwaway demo-*@rakshanet.local accounts so
+// anyone can try a role instantly. They pile up over a long testing/demo
+// session - hidden from the People list by default so it stays readable,
+// never deleted (real verifications/plans/audit entries reference them).
+const QUICK_START_EMAIL_PATTERN = 'demo-%@rakshanet.local';
+
 async function listUsers(req, res) {
-  const { role, district, page = 1, limit = 50 } = req.query;
+  const { role, district, page = 1, limit = 50, includeTestAccounts } = req.query;
   const where = {};
   if (role) where.role = role;
   if (district) where.district = district;
+  if (includeTestAccounts !== 'true') {
+    where.email = { [Op.or]: [{ [Op.notLike]: QUICK_START_EMAIL_PATTERN }, { [Op.is]: null }] };
+  }
 
   const offset = (Number(page) - 1) * Number(limit);
   const { rows, count } = await User.findAndCountAll({
@@ -17,10 +28,15 @@ async function listUsers(req, res) {
     order: [['createdAt', 'DESC']]
   });
 
+  const hiddenTestAccounts = includeTestAccounts !== 'true'
+    ? await User.count({ where: { ...(role ? { role } : {}), ...(district ? { district } : {}), email: { [Op.like]: QUICK_START_EMAIL_PATTERN } } })
+    : 0;
+
   res.json({
     success: true,
     users: rows.map((u) => u.toSafeJSON()),
-    pagination: { page: Number(page), limit: Number(limit), total: count }
+    pagination: { page: Number(page), limit: Number(limit), total: count },
+    hiddenTestAccounts
   });
 }
 
