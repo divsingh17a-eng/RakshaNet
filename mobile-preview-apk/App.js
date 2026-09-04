@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { WebView } from 'react-native-webview';
 import * as SplashScreen from 'expo-splash-screen';
@@ -21,6 +21,11 @@ export default function App() {
   const webViewRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Real connectivity failure (DNS/timeout/offline) vs a normal load - shows a
+  // branded retry screen instead of the WebView's default ugly native error
+  // page, since a live demo can hit a flaky venue wifi at any moment.
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     const onBackPress = () => {
@@ -39,25 +44,53 @@ export default function App() {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
 
+  const onError = useCallback((syntheticEvent) => {
+    setLoading(false);
+    setLoadError(syntheticEvent.nativeEvent?.description || 'Could not reach the RakshaNet server.');
+    SplashScreen.hideAsync().catch(() => {});
+  }, []);
+
+  const retry = useCallback(() => {
+    setLoadError(null);
+    setLoading(true);
+    setReloadKey((k) => k + 1); // remounts the WebView for a clean retry, not just reload()
+  }, []);
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      <WebView
-        ref={webViewRef}
-        source={{ uri: MOBILE_PREVIEW_URL }}
-        style={styles.webview}
-        onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack)}
-        onLoadEnd={onLoadEnd}
-        geolocationEnabled
-        javaScriptEnabled
-        domStorageEnabled
-        allowsBackForwardNavigationGestures
-        pullToRefreshEnabled
-        originWhitelist={['*']}
-      />
-      {loading && (
+      {!loadError && (
+        <WebView
+          key={reloadKey}
+          ref={webViewRef}
+          source={{ uri: MOBILE_PREVIEW_URL }}
+          style={styles.webview}
+          onNavigationStateChange={(navState) => setCanGoBack(navState.canGoBack)}
+          onLoadEnd={onLoadEnd}
+          onError={onError}
+          onHttpError={onError}
+          geolocationEnabled
+          javaScriptEnabled
+          domStorageEnabled
+          allowsBackForwardNavigationGestures
+          pullToRefreshEnabled
+          originWhitelist={['*']}
+        />
+      )}
+      {loading && !loadError && (
         <View style={styles.loadingOverlay} pointerEvents="none">
           <ActivityIndicator size="large" color="#DC2626" />
+        </View>
+      )}
+      {loadError && (
+        <View style={styles.errorOverlay}>
+          <Text style={styles.errorTitle}>Couldn&apos;t connect</Text>
+          <Text style={styles.errorMessage}>
+            Check your internet connection, then try again. ({loadError})
+          </Text>
+          <Pressable style={styles.retryButton} onPress={retry}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -72,5 +105,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center'
-  }
+  },
+  errorOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    backgroundColor: '#fff'
+  },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: '#0f172a', marginBottom: 8 },
+  errorMessage: { fontSize: 13, color: '#64748b', textAlign: 'center', marginBottom: 20 },
+  retryButton: { backgroundColor: '#DC2626', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 8 },
+  retryButtonText: { color: '#fff', fontWeight: '700', fontSize: 14 }
 });
