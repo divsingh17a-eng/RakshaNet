@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { listReports, verifyReport } from '../api/endpoints';
+import { useCallback, useEffect, useState } from 'react';
+import { listReports, verifyReport, getRelatedReports } from '../api/endpoints';
 import { useApiQuery } from '../hooks/useApiQuery';
 import { useSocketEvent } from '../context/SocketContext';
 import { ErrorState, LoadingState, EmptyState } from '../components/common/QueryState';
@@ -35,33 +35,42 @@ export default function VerificationQueuePage() {
       )}
       {status === 'success' && data.reports?.length > 0 && (
         <div className="space-y-3">
-          {data.reports.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="min-w-0">
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-800">{HAZARD_TYPE_LABELS[r.type] || r.type}</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                    Severity {r.severity}/5
-                  </span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                    {titleCase(r.sourceChannel)}
-                  </span>
+          {/* Automated incident prioritization: severity + corroborating nearby
+              reports (see backend/src/services/moderation.service.js
+              computePriorityScore) - highest priority first, not just newest. */}
+          {[...data.reports]
+            .sort((a, b) => (b.priority?.score ?? 0) - (a.priority?.score ?? 0))
+            .map((r) => (
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="min-w-0">
+                  <div className="mb-1 flex items-center gap-2">
+                    {r.priority && <PriorityBadge priority={r.priority} />}
+                    <span className="text-sm font-semibold text-slate-800">{HAZARD_TYPE_LABELS[r.type] || r.type}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                      Severity {r.severity}/5
+                    </span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                      {titleCase(r.sourceChannel)}
+                    </span>
+                  </div>
+                  {r.description && <p className="mb-1 max-w-lg truncate text-xs text-slate-600">{r.description}</p>}
+                  <p className="text-[11px] text-slate-400">
+                    Reported {formatDate(r.reportedAt)} · {r.media?.length || 0} media file{r.media?.length === 1 ? '' : 's'}
+                    {r.priority?.relatedCount > 0 && (
+                      <> · 🔗 {r.priority.relatedCount} related report{r.priority.relatedCount === 1 ? '' : 's'} nearby</>
+                    )}
+                  </p>
+                  <ModerationFlags moderation={r.moderation} />
                 </div>
-                {r.description && <p className="mb-1 max-w-lg truncate text-xs text-slate-600">{r.description}</p>}
-                <p className="text-[11px] text-slate-400">
-                  Reported {formatDate(r.reportedAt)} · {r.media?.length || 0} media file{r.media?.length === 1 ? '' : 's'}
-                </p>
-                <ModerationFlags moderation={r.moderation} />
+                <button
+                  type="button"
+                  onClick={() => setActiveReport(r)}
+                  className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
+                >
+                  Review & Verify
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveReport(r)}
-                className="rounded-md bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700"
-              >
-                Review & Verify
-              </button>
-            </div>
-          ))}
+            ))}
         </div>
       )}
 
@@ -82,6 +91,15 @@ function VerifyModal({ report, onClose, onVerified }) {
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [related, setRelated] = useState(null);
+
+  useEffect(() => {
+    setRelated(null);
+    if (!report) return;
+    getRelatedReports(report.id)
+      .then((res) => setRelated(res.related))
+      .catch(() => setRelated([]));
+  }, [report?.id]);
 
   if (!report) return null;
 
@@ -107,8 +125,15 @@ function VerifyModal({ report, onClose, onVerified }) {
   return (
     <Modal open={Boolean(report)} onClose={onClose} title={`Verify: ${HAZARD_TYPE_LABELS[report.type] || report.type}`}>
       <div className="space-y-3">
+        {report.priority && (
+          <div className="flex items-center gap-2">
+            <PriorityBadge priority={report.priority} />
+            <span className="text-[11px] text-slate-500">Priority score {report.priority.score}/100 (severity + nearby corroborating reports)</span>
+          </div>
+        )}
         {report.description && <p className="rounded-md bg-slate-50 p-2 text-xs text-slate-600">{report.description}</p>}
         <ModerationFlags moderation={report.moderation} verbose />
+        <RelatedReportsSection related={related} />
         {report.location?.coordinates && (
           <div>
             <p className="mb-1 text-xs font-medium text-slate-600">Satellite view of reported location</p>
@@ -156,6 +181,51 @@ function VerifyModal({ report, onClose, onVerified }) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+const PRIORITY_STYLES = {
+  high: 'bg-red-100 text-red-800 border-red-200',
+  medium: 'bg-amber-100 text-amber-800 border-amber-200',
+  low: 'bg-slate-100 text-slate-600 border-slate-200'
+};
+
+// Automated incident prioritization badge - severity + corroborating nearby
+// reports, computed server-side (moderation.service.js computePriorityScore).
+function PriorityBadge({ priority }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${PRIORITY_STYLES[priority.level] || PRIORITY_STYLES.low}`}>
+      {priority.level} priority
+    </span>
+  );
+}
+
+// Threat correlation: other reports nearby in space and time (any hazard
+// type) - lets an officer see "these 3 reports are probably the same
+// emerging event" instead of judging this one in isolation. Purely
+// informational, same as the moderation flags above - never auto-merges or
+// auto-decides anything.
+function RelatedReportsSection({ related }) {
+  if (related === null) return <p className="text-[11px] text-slate-400">Checking for related reports nearby…</p>;
+  if (related.length === 0) return null;
+
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-slate-600">
+        🔗 {related.length} related report{related.length === 1 ? '' : 's'} nearby — may be the same emerging event
+      </p>
+      <div className="space-y-1.5">
+        {related.map((r) => (
+          <div key={r.id} className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1.5 text-[11px] text-blue-900">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold">{HAZARD_TYPE_LABELS[r.type] || r.type} · Severity {r.severity}/5</span>
+              <span className="text-blue-600">{r.distanceMeters}m away</span>
+            </div>
+            {r.description && <p className="mt-0.5 text-blue-800">{r.description}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

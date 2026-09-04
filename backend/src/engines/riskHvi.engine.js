@@ -165,6 +165,45 @@ async function recomputeAllHvi() {
   return results;
 }
 
+// Trend-based early warning: compares each habitation's current HVI against
+// its own oldest recorded score within the lookback window, using the same
+// risk_scores history the "why" breakdown already relies on. Deliberately a
+// simple delta over real history, not a forecast/prediction model - stays
+// explainable and never claims to predict the future, just flags who has
+// gotten meaningfully worse recently so an officer can look closer.
+async function getTrendingHabitations({ days = 7, minDelta = 8 } = {}) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const rows = await sequelize.query(
+    `
+    SELECT h.id, h.name, h.district, h.current_hvi, h.current_zone,
+           baseline.hvi AS baseline_hvi, baseline.calculated_at AS baseline_at
+    FROM habitations h
+    JOIN LATERAL (
+      SELECT hvi, calculated_at FROM risk_scores rs
+      WHERE rs.habitation_id = h.id AND rs.calculated_at <= :since
+      ORDER BY rs.calculated_at DESC
+      LIMIT 1
+    ) baseline ON true
+    `,
+    { replacements: { since }, type: QueryTypes.SELECT }
+  );
+
+  return rows
+    .map((r) => ({
+      habitationId: r.id,
+      name: r.name,
+      district: r.district,
+      currentHvi: r.current_hvi,
+      currentZone: r.current_zone,
+      baselineHvi: r.baseline_hvi,
+      baselineAt: r.baseline_at,
+      hviDelta: Math.round((r.current_hvi - r.baseline_hvi) * 10) / 10
+    }))
+    .filter((r) => r.hviDelta >= minDelta)
+    .sort((a, b) => b.hviDelta - a.hviDelta);
+}
+
 // Pure weighted-sum helper (no DB) - takes already-computed 0-100 factor
 // values and applies the HVI_WEIGHTS formula from PRD sec.5. Exported mainly
 // so it (and the individual pure factor functions above) can be unit tested
@@ -180,6 +219,7 @@ function weightedHvi(factorValues) {
 module.exports = {
   computeHviForHabitation,
   recomputeAllHvi,
+  getTrendingHabitations,
   weightedHvi,
   populationVulnerabilityFactor,
   housingStructuralFactor,

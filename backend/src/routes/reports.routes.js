@@ -19,6 +19,7 @@ router.get('/', reportsCtrl.listReports);
 router.get('/connections', messagesCtrl.listMyConnections);
 
 router.get('/:id', reportsCtrl.getReportDetail);
+router.get('/:id/related', authorize(ROLES.VOLUNTEER, ...DASHBOARD_ROLES), reportsCtrl.getRelatedReports);
 router.post('/:id/verify', authorize(ROLES.VOLUNTEER, ...DASHBOARD_ROLES), validate(verificationSchema), verificationsCtrl.verifyReport);
 router.get('/:id/verifications', authorize(ROLES.VOLUNTEER, ...DASHBOARD_ROLES), verificationsCtrl.listVerificationsForReport);
 

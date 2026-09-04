@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getDashboardSummary, getSmsIvrStatus } from '../api/endpoints';
+import { getDashboardSummary, getSmsIvrStatus, getTrendingHabitations } from '../api/endpoints';
 import { useApiQuery } from '../hooks/useApiQuery';
 import { useSocketEvent } from '../context/SocketContext';
 import KpiTile from '../components/common/KpiTile';
 import { ErrorState, LoadingState } from '../components/common/QueryState';
-import { DemoDataBadge } from '../components/common/Badge';
+import { DemoDataBadge, ZoneBadge } from '../components/common/Badge';
 import { formatDate } from '../utils/format';
 
 export default function OverviewPage() {
@@ -28,6 +28,15 @@ export default function OverviewPage() {
   useEffect(() => {
     getSmsIvrStatus().then((res) => setSmsIvrMode(res.mode)).catch(() => setSmsIvrMode(null));
   }, []);
+
+  // Trend-based early warning: real HVI delta over the risk_scores history,
+  // not a forecast (see backend/src/engines/riskHvi.engine.js getTrendingHabitations).
+  const [trending, setTrending] = useState(null);
+  const fetchTrending = useCallback(() => {
+    getTrendingHabitations().then((res) => setTrending(res.trending)).catch(() => setTrending([]));
+  }, []);
+  useEffect(() => { fetchTrending(); }, [fetchTrending]);
+  useSocketEvent('risk:recalculated', fetchTrending);
 
   if (status === 'loading' || status === 'idle') {
     return (
@@ -123,6 +132,33 @@ export default function OverviewPage() {
           hint="Relocation plans awaiting officer decision"
         />
       </div>
+
+      {trending && trending.length > 0 && (
+        <div className="mt-5 rounded-xl border border-orange-200 bg-orange-50 p-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-800">
+            ⚠ Rapidly Worsening — HVI up 8+ points in the last 7 days
+          </p>
+          <div className="space-y-1.5">
+            {trending.map((t) => (
+              <button
+                key={t.habitationId}
+                type="button"
+                onClick={() => navigate('/map')}
+                className="flex w-full items-center justify-between rounded-md bg-white px-3 py-1.5 text-left text-xs shadow-sm hover:bg-orange-100"
+              >
+                <span className="font-medium text-slate-800">{t.name} <span className="text-slate-400">({t.district})</span></span>
+                <span className="flex items-center gap-2">
+                  <span className="text-slate-500">{t.baselineHvi} → <span className="font-semibold text-orange-700">{t.currentHvi}</span> (+{t.hviDelta})</span>
+                  <ZoneBadge zone={t.currentZone} />
+                </span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-orange-700">
+            A real delta over recorded history, not a prediction — flags who has gotten meaningfully worse recently.
+          </p>
+        </div>
+      )}
 
       {smsIvrMode && (
         <p className="mt-5 text-[11px] text-slate-400">

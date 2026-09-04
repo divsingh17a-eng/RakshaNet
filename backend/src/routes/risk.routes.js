@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 router.get('/map', authorize(...DASHBOARD_ROLES, ROLES.VOLUNTEER, ROLES.CITIZEN), ctrl.getMapLayers);
+router.get('/trending', authorize(...DASHBOARD_ROLES), ctrl.getTrending);
 router.post('/recalculate', authorize(ROLES.ADMIN, ROLES.SDMA_OFFICER, ROLES.DDMA_OFFICER), ctrl.recalculateRisk);
 
 module.exports = router;

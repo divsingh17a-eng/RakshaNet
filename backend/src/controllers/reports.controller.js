@@ -1,8 +1,8 @@
 const { HazardReport, ReportMedia } = require('../models/sql');
 const { ApiError } = require('../middleware/errorHandler');
-const { moderateReport } = require('../services/moderation.service');
+const { moderateReport, findRelatedReports, computePriorityScore } = require('../services/moderation.service');
 const { uploadMedia } = require('../services/upload.service');
-const { SOURCE_CHANNELS } = require('../config/constants');
+const { SOURCE_CHANNELS, REPORT_STATUS } = require('../config/constants');
 
 /**
  * Single-report submission (online mobile flow, FR-02). Idempotent on
@@ -67,7 +67,19 @@ async function listReports(req, res) {
     order: [['reportedAt', 'DESC']],
     limit: 200
   });
-  res.json({ success: true, reports });
+
+  // Automated incident prioritization (only for the small "awaiting decision"
+  // set that actually matters for triage - the Verification Queue - so this
+  // never scales into an N+1 problem on the full report history).
+  const reportsJson = reports.map((r) => r.toJSON());
+  const pending = reportsJson.filter((r) => r.status === REPORT_STATUS.SUBMITTED);
+  for (const r of pending) {
+    // eslint-disable-next-line no-await-in-loop
+    const related = await findRelatedReports(r);
+    r.priority = computePriorityScore(r, related.length);
+  }
+
+  res.json({ success: true, reports: reportsJson });
 }
 
 async function getReportDetail(req, res) {
@@ -76,4 +88,15 @@ async function getReportDetail(req, res) {
   res.json({ success: true, report });
 }
 
-module.exports = { submitReport, listReports, getReportDetail };
+// GET /api/reports/:id/related - threat correlation: other reports nearby in
+// space and time, so an officer can see whether several reports are likely
+// describing the same emerging event instead of judging each in isolation.
+async function getRelatedReports(req, res) {
+  const report = await HazardReport.findByPk(req.params.id);
+  if (!report) throw new ApiError(404, 'Report not found');
+
+  const related = await findRelatedReports(report);
+  res.json({ success: true, related });
+}
+
+module.exports = { submitReport, listReports, getReportDetail, getRelatedReports };

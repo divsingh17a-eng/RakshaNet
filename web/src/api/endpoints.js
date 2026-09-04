@@ -64,6 +64,8 @@ export const listReports = (params = {}) => apiClient.get('/reports', { params }
 export const getReport = (id) => apiClient.get(`/reports/${id}`).then((r) => r.data);
 export const verifyReport = (id, body) => apiClient.post(`/reports/${id}/verify`, body).then((r) => r.data);
 export const listReportVerifications = (id) => apiClient.get(`/reports/${id}/verifications`).then((r) => r.data);
+export const getRelatedReports = (id) => apiClient.get(`/reports/${id}/related`).then((r) => r.data);
+export const getTrendingHabitations = (params = {}) => apiClient.get('/risk/trending', { params }).then((r) => r.data);
 
 // --- SOS & alerts ---
 export const listActiveSos = () => apiClient.get('/sos').then((r) => r.data);

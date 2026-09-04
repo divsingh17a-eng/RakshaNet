@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { Habitation, SafeSite, HazardReport } = require('../models/sql');
-const { recomputeAllHvi } = require('../engines/riskHvi.engine');
+const { recomputeAllHvi, getTrendingHabitations } = require('../engines/riskHvi.engine');
 const { REPORT_STATUS } = require('../config/constants');
 
 // GET /api/risk/map - live risk map layers (habitations, safe sites, verified hazard reports).
@@ -39,4 +39,15 @@ async function recalculateRisk(req, res) {
   res.json({ success: true, count: results.length, results });
 }
 
-module.exports = { getMapLayers, recalculateRisk };
+// GET /api/risk/trending - "Rapidly Worsening" early-warning list: habitations
+// whose HVI has climbed the most over the lookback window, computed from the
+// real risk_scores history (a delta over real data, not a prediction).
+async function getTrending(req, res) {
+  const days = req.query.days ? Number(req.query.days) : 7;
+  const minDelta = req.query.minDelta ? Number(req.query.minDelta) : 8;
+
+  const trending = await getTrendingHabitations({ days, minDelta });
+  res.json({ success: true, days, minDelta, trending });
+}
+
+module.exports = { getMapLayers, recalculateRisk, getTrending };
