@@ -7,16 +7,15 @@ import SatelliteThumb from '../components/common/SatelliteThumb';
 import { ROLES, HAZARD_TYPE_LABELS, ZONE_COLOR_HEX } from '../constants';
 
 /**
- * Browser-based, phone-framed prototype of the RakshaNet mobile app
- * (Citizen + Volunteer), wired to the *real* backend - not mock data. Exists
- * so the actual report/SOS/verify/alerts flow can be demoed instantly from
- * any browser without Expo Go, a device, or a build pipeline. The real Expo
- * app in /mobile is still the production mobile client; this is a demo aid.
+ * Browser-based, phone-framed RakshaNet mobile app (Citizen + Volunteer),
+ * wired to the *real* backend - not mock data. This is also what the
+ * installable Android app (/mobile) packages in a native WebView shell -
+ * same screens, same live data, either way (see /mobile/App.js).
  *
- * Screen set is deliberately kept identical to the real Expo app + PRD sec.10
- * (SOS, Report Hazard/Vulnerability, My Reports, Alerts, Volunteer Tasks,
- * Risk Map) - no preview-only features, so there's never a second, slightly
- * different version of "what RakshaNet does" for a judge to notice.
+ * Screen set matches PRD sec.10 (SOS, Report Hazard/Vulnerability, My
+ * Reports, Alerts, Volunteer Tasks, Risk Map) - no decorative extras, so
+ * there's never a second, slightly different version of "what RakshaNet
+ * does" for a judge to notice.
  *
  * Uses its own OTP session (see mobilePreviewClient.js) - independent from
  * the officer dashboard's email/password login next door.
@@ -43,10 +42,10 @@ function getLocation() {
 
 // --- Phone chrome ------------------------------------------------------
 
-// `embedded=1` (see MOBILE_PREVIEW_URL in /mobile-preview-apk/App.js) means
-// this page is loaded inside the packaged Android app's own WebView, which
-// is already the phone - the desktop-only bezel/fake-status-bar/"browser
-// demo" banner exist purely to simulate a phone inside a browser window, so
+// `embedded=1` (see MOBILE_PREVIEW_URL in /mobile/App.js) means this page is
+// loaded inside the packaged Android app's own WebView, which is already the
+// phone - the desktop-only bezel/fake-status-bar/"browser demo" banner exist
+// purely to simulate a phone inside a browser window, so
 // they'd be a phone-within-a-phone there. Render edge-to-edge instead.
 function PhoneFrame({ children, embedded }) {
   if (embedded) {
@@ -56,8 +55,7 @@ function PhoneFrame({ children, embedded }) {
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-slate-100 p-6">
       <div className="flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-3 py-1 text-[10px] font-medium text-slate-500 shadow-sm">
         <span aria-hidden="true">🖥️</span>
-        Browser demo of the Citizen/Volunteer experience — the production mobile app is a
-        native Expo build with offline sync and camera capture.
+        Browser demo of the RakshaNet Citizen/Volunteer app — also installable as a native Android app.
       </div>
       <div className="w-[380px] overflow-hidden rounded-[2.5rem] border-8 border-slate-900 bg-white shadow-2xl">
         <div className="flex items-center justify-between bg-white px-6 pb-1 pt-3 text-[11px] font-semibold text-slate-900">

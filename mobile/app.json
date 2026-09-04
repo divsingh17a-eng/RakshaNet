@@ -1,68 +1,44 @@
 {
   "expo": {
     "name": "RakshaNet",
-    "slug": "rakshanet-mobile",
-    "scheme": "rakshanet",
+    "slug": "rakshanet-mobile-preview",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "description": "RakshaNet - disaster-risk intelligence and strategic relocation platform. Citizen and Volunteer mobile app (SIH 2026, PS 26191, Team Jeevan Setu).",
     "primaryColor": "#DC2626",
+    "description": "RakshaNet - Citizen/Volunteer mobile app for disaster reporting, SOS, and alerts. SIH 2026, PS 26191, Team Jeevan Setu.",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "org.jeevansetu.rakshanet",
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "RakshaNet uses your location to attach accurate GPS coordinates to SOS alerts, hazard reports and vulnerability reports.",
-        "NSCameraUsageDescription": "RakshaNet uses your camera to attach photo evidence to hazard and vulnerability reports.",
-        "NSPhotoLibraryUsageDescription": "RakshaNet lets you attach photos from your gallery as evidence on hazard and vulnerability reports."
-      }
+      "bundleIdentifier": "org.jeevansetu.rakshanet.preview"
     },
     "android": {
-      "package": "org.jeevansetu.rakshanet",
+      "package": "org.jeevansetu.rakshanet.preview",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.CAMERA",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECORD_AUDIO"
-      ],
-      "config": {
-        "googleMaps": {
-          "apiKey": ""
-        }
       }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-sqlite",
-      "expo-secure-store",
-      [
-        "expo-location",
-        {
-          "locationWhenInUsePermission": "RakshaNet uses your location to attach accurate GPS coordinates to SOS alerts and reports."
-        }
-      ],
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": "RakshaNet lets you attach photos as evidence on hazard and vulnerability reports.",
-          "cameraPermission": "RakshaNet uses your camera to attach photo evidence to hazard and vulnerability reports."
-        }
-      ]
+      ["expo-splash-screen", {
+        "image": "./assets/splash-icon.png",
+        "imageWidth": 220,
+        "resizeMode": "contain",
+        "backgroundColor": "#1d4ed8"
+      }]
     ],
     "extra": {
       "eas": {
-        "projectId": "28701e42-8935-4fc2-b279-2c71220b82e7"
+        "projectId": "0839dc05-b2fc-4fcd-a61a-4730089b9b81"
       }
     },
     "owner": "divyansh5401"

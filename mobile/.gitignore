@@ -31,11 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
-.env
 .env*.local
-
-# bundle verification output (see package.json "verify" script)
-.expo-export-check/
 
 # typescript
 *.tsbuildinfo

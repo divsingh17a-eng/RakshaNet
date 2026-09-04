@@ -17,7 +17,8 @@ REPORT → VERIFY → RISK → RED ZONE → SAFE SITE → CAPACITY → MATCH →
 ```
 /backend    Node.js + Express API, Socket.io live feed, PostgreSQL + PostGIS
 /web        React.js + Vite + Tailwind CSS Command Center (Leaflet map)
-/mobile     React Native (Expo) app - shared Citizen/Volunteer app, offline SQLite queue
+/mobile     React Native (Expo) app - installable Android shell around the Citizen/Volunteer
+            web experience (web/src/pages/MobilePreviewPage.jsx), same live backend either way
 /shared     Cross-app constants (roles, zone colors, hazard types, ...)
 /database   Migration + seed scripts (deterministic demo dataset)
 /docs       PRD, API reference, demo script
