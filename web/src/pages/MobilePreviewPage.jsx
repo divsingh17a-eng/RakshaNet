@@ -100,7 +100,8 @@ function PrimaryButton({ children, tone = 'red', ...props }) {
 function TileButton({ icon, label, onClick, tone = 'slate', badge }) {
   const toneClasses = {
     slate: 'bg-white border-slate-200 text-slate-800',
-    red: 'bg-red-50 border-red-200 text-red-700'
+    red: 'bg-red-50 border-red-200 text-red-700',
+    amber: 'bg-amber-50 border-amber-200 text-amber-800'
   };
   return (
     <button
@@ -660,8 +661,19 @@ function SosScreen({ onBack }) {
   );
 }
 
+// Hazard = something actively happening right now (an event). Vulnerability =
+// a standing weakness/risk that makes a place dangerous even with nothing
+// happening yet (e.g. a cracked wall, a house that floods every monsoon).
+// Both submit to the same real hazard-reports pipeline (backend has one
+// report type today, not two) - the distinction here is which options and
+// framing are shown, so the two flows don't look and read identically.
+const HAZARD_EVENT_TYPES = ['flood', 'landslide', 'rainfall', 'coastal_erosion', 'earthquake', 'cyclone', 'fire', 'other'];
+const VULNERABILITY_TYPES = ['structural', 'other'];
+
 function ReportFormScreen({ onBack, onSubmitted, kind }) {
-  const [type, setType] = useState('landslide');
+  const isVulnerability = kind === 'vulnerability';
+  const typeOptions = isVulnerability ? VULNERABILITY_TYPES : HAZARD_EVENT_TYPES;
+  const [type, setType] = useState(typeOptions[0]);
   const [severity, setSeverity] = useState(3);
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
@@ -691,28 +703,44 @@ function ReportFormScreen({ onBack, onSubmitted, kind }) {
 
   return (
     <div>
-      <TopBar title={kind === 'vulnerability' ? 'Report Vulnerability' : 'Report Hazard'} onBack={onBack} />
+      <TopBar title={isVulnerability ? 'Report Vulnerability' : 'Report Hazard'} onBack={onBack} />
       <div className="space-y-4 p-4">
+        <p className={`rounded-lg p-2.5 text-[11px] ${isVulnerability ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-800'}`}>
+          {isVulnerability
+            ? '🏚️ Use this for a standing risk or weakness that could hurt someone later - a cracked wall, a house that floods every monsoon - even if nothing has happened yet.'
+            : '⚠️ Use this for something actively happening right now - a landslide, flooding, a fire.'}
+        </p>
+
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Hazard type</label>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">{isVulnerability ? 'Vulnerability type' : 'Hazard type'}</label>
           <div className="grid grid-cols-3 gap-2">
-            {Object.entries(HAZARD_TYPE_LABELS).map(([value, label]) => (
+            {typeOptions.map((value) => (
               <button
                 key={value}
                 onClick={() => setType(value)}
                 className={`rounded-lg border px-2 py-2 text-[11px] font-medium ${
-                  type === value ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-600'
+                  type === value
+                    ? isVulnerability
+                      ? 'border-amber-500 bg-amber-50 text-amber-700'
+                      : 'border-red-500 bg-red-50 text-red-700'
+                    : 'border-slate-200 bg-white text-slate-600'
                 }`}
               >
-                {label}
+                {HAZARD_TYPE_LABELS[value]}
               </button>
             ))}
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">Severity: {severity}/5</label>
-          <input type="range" min="1" max="5" value={severity} onChange={(e) => setSeverity(Number(e.target.value))} className="w-full accent-red-600" />
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            {isVulnerability ? 'How serious is this risk?' : 'Severity'}: {severity}/5
+          </label>
+          <input
+            type="range" min="1" max="5" value={severity}
+            onChange={(e) => setSeverity(Number(e.target.value))}
+            className={`w-full ${isVulnerability ? 'accent-amber-600' : 'accent-red-600'}`}
+          />
         </div>
 
         <div>
@@ -721,14 +749,14 @@ function ReportFormScreen({ onBack, onSubmitted, kind }) {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="What did you see?"
+            placeholder={isVulnerability ? 'What weakness or risk did you notice?' : 'What did you see?'}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none"
           />
         </div>
 
         <p className="text-[11px] text-slate-400">📍 GPS location will be attached automatically on submit.</p>
 
-        <PrimaryButton onClick={submit} disabled={busy}>
+        <PrimaryButton onClick={submit} disabled={busy} tone={isVulnerability ? 'orange' : 'red'}>
           {busy ? 'Submitting…' : 'Submit Report'}
         </PrimaryButton>
         <ErrorBanner message={error} />
@@ -809,7 +837,7 @@ function CitizenHome({ user, onNavigate, onLogout }) {
     <div>
       <TopBar
         title={`Hi, ${user.name || 'Citizen'}`}
-        right={<button onClick={onLogout} className="text-xs text-slate-400">Logout</button>}
+        right={<button onClick={onLogout} className="text-xs font-medium leading-none text-slate-400">Logout</button>}
       />
       <div className="p-4">
         <OnDutyBanner />
@@ -824,8 +852,8 @@ function CitizenHome({ user, onNavigate, onLogout }) {
         </button>
 
         <div className="grid grid-cols-2 gap-3">
-          <TileButton icon="⚠️" label="Report Hazard" onClick={() => onNavigate('report-hazard')} />
-          <TileButton icon="🏚️" label="Report Vulnerability" onClick={() => onNavigate('report-vulnerability')} />
+          <TileButton icon="⚠️" label="Report Hazard" tone="red" onClick={() => onNavigate('report-hazard')} />
+          <TileButton icon="🏚️" label="Report Vulnerability" tone="amber" onClick={() => onNavigate('report-vulnerability')} />
           <TileButton icon="📋" label="My Reports" onClick={() => onNavigate('my-reports')} />
           <TileButton icon="🔔" label="Alerts" onClick={() => onNavigate('alerts')} />
           <TileButton icon="🤖" label="Ask Assistant" onClick={() => onNavigate('chatbot')} tone="slate" />
@@ -1154,7 +1182,7 @@ function VolunteerHome({ user, onNavigate, onLogout, onUpdateUser }) {
             onClick={() => onNavigate('tasks')}
           />
           <TileButton icon="🗺️" label="Tactical Map" onClick={() => onNavigate('tactical-map')} />
-          <TileButton icon="📝" label="Field Survey" onClick={() => onNavigate('report-vulnerability')} tone="slate" />
+          <TileButton icon="📝" label="Field Survey" onClick={() => onNavigate('report-vulnerability')} tone="amber" />
           <TileButton icon="🔔" label="Alerts" onClick={() => onNavigate('alerts')} />
           <TileButton icon="🤖" label="Ask Assistant" onClick={() => onNavigate('chatbot')} tone="slate" />
         </div>
