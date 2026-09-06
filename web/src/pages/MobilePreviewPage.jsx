@@ -837,7 +837,7 @@ function CitizenHome({ user, onNavigate, onLogout }) {
     <div>
       <TopBar
         title={`Hi, ${user.name || 'Citizen'}`}
-        right={<button onClick={onLogout} className="text-xs font-medium leading-none text-slate-400">Logout</button>}
+        right={<button onClick={onLogout} className="mt-1 text-xs font-medium leading-none text-slate-400">Logout</button>}
       />
       <div className="p-4">
         <OnDutyBanner />
@@ -1166,7 +1166,7 @@ function VolunteerHome({ user, onNavigate, onLogout, onUpdateUser }) {
         right={
           <div className="flex items-center gap-2">
             <DutyToggle user={user} onUpdateUser={onUpdateUser} />
-            <button onClick={onLogout} className="text-xs text-slate-400">Logout</button>
+            <button onClick={onLogout} className="mt-1 text-xs font-medium leading-none text-slate-400">Logout</button>
           </div>
         }
       />
