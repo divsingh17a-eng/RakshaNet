@@ -31,9 +31,9 @@ async function getMapLayers(req, res) {
 
 // POST /api/risk/recalculate - recomputes HVI/risk/zone for every habitation from live data.
 async function recalculateRisk(req, res) {
-  const results = await recomputeAllHvi();
-
   const io = req.app.get('io');
+  const results = await recomputeAllHvi({ io });
+
   if (io) io.emit('risk:recalculated', { count: results.length, at: new Date().toISOString() });
 
   res.json({ success: true, count: results.length, results });

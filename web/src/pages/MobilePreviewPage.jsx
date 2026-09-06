@@ -676,24 +676,69 @@ function ReportFormScreen({ onBack, onSubmitted, kind }) {
   const [type, setType] = useState(typeOptions[0]);
   const [severity, setSeverity] = useState(3);
   const [description, setDescription] = useState('');
+  const [photo, setPhoto] = useState(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => () => { if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl); }, [photoPreviewUrl]);
+
+  // capture="environment" is what actually opens the phone's rear camera
+  // directly (rather than a generic file/gallery chooser) - the thing worth
+  // double-checking through the packaged app's WebView specifically, since
+  // WebViews are a common place for this to silently fall back to "choose
+  // file" instead. Revoke the previous preview URL so picking a new photo
+  // doesn't leak the old one.
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhoto(file);
+    setPhotoPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+  }
+
+  function removePhoto() {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    setPhoto(null);
+    setPhotoPreviewUrl(null);
+  }
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
       const loc = await getLocation();
-      const { data } = await mobileApiClient.post('/reports', {
-        localUuid: uuid(),
-        type,
-        severity,
-        description: description || undefined,
-        lng: loc.lng,
-        lat: loc.lat,
-        reportedAt: new Date().toISOString()
-      });
-      onSubmitted(data.report);
+      const localUuid = uuid();
+      const reportedAt = new Date().toISOString();
+
+      if (photo) {
+        // Multipart only when there's actually a file to carry - matches
+        // backend/src/controllers/reports.controller.js's upload.array('photos').
+        const form = new FormData();
+        form.append('localUuid', localUuid);
+        form.append('type', type);
+        form.append('severity', severity);
+        if (description) form.append('description', description);
+        form.append('lng', loc.lng);
+        form.append('lat', loc.lat);
+        form.append('reportedAt', reportedAt);
+        form.append('photos', photo, photo.name || 'photo.jpg');
+        const { data } = await mobileApiClient.post('/reports', form);
+        onSubmitted(data.report);
+      } else {
+        const { data } = await mobileApiClient.post('/reports', {
+          localUuid,
+          type,
+          severity,
+          description: description || undefined,
+          lng: loc.lng,
+          lat: loc.lat,
+          reportedAt
+        });
+        onSubmitted(data.report);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -752,6 +797,33 @@ function ReportFormScreen({ onBack, onSubmitted, kind }) {
             placeholder={isVulnerability ? 'What weakness or risk did you notice?' : 'What did you see?'}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none"
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">Photo evidence (optional)</label>
+          {photoPreviewUrl ? (
+            <div className="flex items-center gap-3">
+              <img src={photoPreviewUrl} alt="Selected evidence" className="h-20 w-20 rounded-lg border border-slate-200 object-cover" />
+              <button type="button" onClick={removePhoto} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                Remove
+              </button>
+            </div>
+          ) : (
+            <label
+              htmlFor="report-photo-input"
+              className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-slate-300 py-4 text-xs font-medium text-slate-500"
+            >
+              📷 Take Photo
+              <input
+                id="report-photo-input"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
+            </label>
+          )}
         </div>
 
         <p className="text-[11px] text-slate-400">📍 GPS location will be attached automatically on submit.</p>
@@ -1217,6 +1289,23 @@ export default function MobilePreviewPage() {
   const [preAuthScreen, setPreAuthScreen] = useState(existing?.user ? 'home' : 'phone');
   const [searchParams, setSearchParams] = useSearchParams();
   const screen = user ? (searchParams.get('screen') || 'home') : preAuthScreen;
+
+  // Packaged-app push notifications: the native shell (mobile/App.js) gets
+  // an Expo push token and injects it as window.__RAKSHANET_PUSH_TOKEN__,
+  // firing 'rakshanet:pushtoken' when it does. Only the web side can
+  // actually register it (PATCH /api/me) since it's the side holding the
+  // logged-in user's auth token - native has no session of its own. A plain
+  // browser tab (no injected token) is simply a no-op here.
+  useEffect(() => {
+    if (!user) return undefined;
+    function trySync() {
+      const token = window.__RAKSHANET_PUSH_TOKEN__;
+      if (token) mobileApiClient.patch('/me', { pushToken: token }).catch(() => {});
+    }
+    trySync(); // covers the token already having arrived before login finished
+    window.addEventListener('rakshanet:pushtoken', trySync);
+    return () => window.removeEventListener('rakshanet:pushtoken', trySync);
+  }, [user]);
 
   function goToScreen(next, params = {}) {
     if (!user) {

@@ -65,9 +65,13 @@ const updateMeSchema = z.object({
   homeLocation: z.object({
     lat: z.coerce.number().min(-90).max(90),
     lng: z.coerce.number().min(-180).max(180)
-  }).optional()
-}).refine((data) => data.isOnDuty !== undefined || data.homeLocation !== undefined, {
-  message: 'Provide at least one field to update (isOnDuty, homeLocation)'
+  }).optional(),
+  // Expo push token from the packaged mobile app (expo-notifications) - lets
+  // the existing alert system (alert.service.js raiseAlert) reach a closed
+  // app, not just an open Socket.io connection.
+  pushToken: z.string().min(1).max(200).optional()
+}).refine((data) => data.isOnDuty !== undefined || data.homeLocation !== undefined || data.pushToken !== undefined, {
+  message: 'Provide at least one field to update (isOnDuty, homeLocation, pushToken)'
 });
 
 // Volunteer -> Command Center quick status message ("Direct Dispatch Comms").

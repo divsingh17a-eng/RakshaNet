@@ -135,10 +135,11 @@ async function updateMe(req, res) {
   const user = await User.findByPk(req.user.id);
   if (!user) throw new ApiError(404, 'User not found');
 
-  const { isOnDuty, homeLocation } = req.body;
+  const { isOnDuty, homeLocation, pushToken } = req.body;
   const metadata = { ...user.metadata };
   if (isOnDuty !== undefined) metadata.isOnDuty = isOnDuty;
   if (homeLocation !== undefined) metadata.homeLocation = homeLocation;
+  if (pushToken !== undefined) metadata.pushToken = pushToken;
 
   await user.update({ metadata });
   res.json({ success: true, user: user.toSafeJSON() });

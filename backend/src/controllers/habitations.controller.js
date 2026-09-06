@@ -103,8 +103,8 @@ async function updateHabitation(req, res) {
 
   let riskUpdate = null;
   if (HVI_INPUT_FIELDS.some((field) => field in updates)) {
-    riskUpdate = await computeHviForHabitation(habitation.id);
     const io = req.app.get('io');
+    riskUpdate = await computeHviForHabitation(habitation.id, { io });
     if (io) io.emit('risk:recalculated', { count: 1, at: new Date().toISOString(), trigger: 'habitation_edit', habitationId: habitation.id });
   }
 
@@ -117,9 +117,9 @@ async function recalculateHabitationRisk(req, res) {
   const habitation = await Habitation.findByPk(req.params.id);
   if (!habitation) throw new ApiError(404, 'Habitation not found');
 
-  const result = await computeHviForHabitation(habitation.id);
-
   const io = req.app.get('io');
+  const result = await computeHviForHabitation(habitation.id, { io });
+
   if (io) io.emit('risk:recalculated', { count: 1, at: new Date().toISOString(), trigger: 'manual', habitationId: habitation.id });
 
   res.json({ success: true, result });

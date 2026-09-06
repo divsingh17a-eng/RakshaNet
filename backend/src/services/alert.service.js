@@ -1,9 +1,12 @@
 const { Alert } = require('../models/sql');
 const logger = require('../config/logger');
+const { sendPushForAlert } = require('./push.service');
 
-// Persists an alert and pushes it live over Socket.io. FCM push delivery is
-// left as a follow-up integration point (FIREBASE_CONFIG) - not required for
-// the hackathon demo to work end-to-end over the socket feed.
+// Persists an alert, pushes it live over Socket.io (for whoever has the app
+// open right now), and sends a real Expo push notification (for whoever
+// doesn't - the whole reason a disaster-response app needs push, not just
+// sockets). Push delivery is fire-and-forget: a slow/failed push provider
+// should never delay or break the alert itself.
 async function raiseAlert({ recipientId = null, district = null, role = null, type, title, message, zone = null, relatedHabitationId = null, io }) {
   const alert = await Alert.create({
     audience: { recipientId, district, role },
@@ -19,6 +22,8 @@ async function raiseAlert({ recipientId = null, district = null, role = null, ty
     else if (district) io.to(`district:${district}`).emit('alert:new', alert);
     else io.emit('alert:new', alert);
   }
+
+  sendPushForAlert(alert).catch((err) => logger.error(`Push delivery failed: ${err.message}`));
 
   logger.debug(`Alert raised: ${title}`);
   return alert;

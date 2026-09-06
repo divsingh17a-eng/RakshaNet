@@ -1,6 +1,9 @@
 const { QueryTypes } = require('sequelize');
 const { sequelize, Habitation, RiskScore, Survey } = require('../models/sql');
-const { HVI_WEIGHTS, HVI_MODEL_VERSION, scoreToZoneColor, REPORT_STATUS } = require('../config/constants');
+const { HVI_WEIGHTS, HVI_MODEL_VERSION, scoreToZoneColor, REPORT_STATUS, ZONE_COLORS, ALERT_TYPES } = require('../config/constants');
+const { raiseAlert } = require('../services/alert.service');
+
+const ZONE_RANK = { [ZONE_COLORS.GREEN]: 0, [ZONE_COLORS.YELLOW]: 1, [ZONE_COLORS.ORANGE]: 2, [ZONE_COLORS.RED]: 3 };
 
 /**
  * Transparent, deterministic Risk/HVI scoring service (PRD sec.5). Every
@@ -97,9 +100,10 @@ function historicalEnvironmentalFactor(habitation) {
   return { value, detail: { historicalIncidentCount: habitation.historicalIncidentCount } };
 }
 
-async function computeHviForHabitation(habitationId) {
+async function computeHviForHabitation(habitationId, { io = null } = {}) {
   const habitation = await Habitation.findByPk(habitationId);
   if (!habitation) throw new Error(`Habitation ${habitationId} not found`);
+  const previousZone = habitation.currentZone;
 
   const [hazardExposure, popVuln, housing, accessibility, historical] = await Promise.all([
     hazardExposureFactor(habitation),
@@ -146,6 +150,24 @@ async function computeHviForHabitation(habitationId) {
     lastCalculatedAt: riskScore.calculatedAt
   });
 
+  // Zone-crossing alert - a real deterministic comparison against the
+  // previous zone, not a fake/simulated notice. Only when it actually moved,
+  // so a routine recompute that lands on the same zone stays silent.
+  if (zone !== previousZone) {
+    const worsened = ZONE_RANK[zone] > ZONE_RANK[previousZone];
+    await raiseAlert({
+      district: habitation.district,
+      type: ALERT_TYPES.ZONE_UPDATE,
+      title: worsened ? `⚠ ${habitation.name} moved to ${zone.toUpperCase()} zone` : `${habitation.name} improved to ${zone.toUpperCase()} zone`,
+      message: worsened
+        ? `Risk level for ${habitation.name} rose from ${previousZone} to ${zone} (HVI ${hvi}).`
+        : `Risk level for ${habitation.name} eased from ${previousZone} to ${zone} (HVI ${hvi}).`,
+      zone,
+      relatedHabitationId: habitation.id,
+      io
+    });
+  }
+
   const topFactors = Object.entries(factorsJson)
     .sort((a, b) => b[1].contribution - a[1].contribution)
     .slice(0, 3)
@@ -154,13 +176,13 @@ async function computeHviForHabitation(habitationId) {
   return { habitationId, riskScore: riskScoreValue, hvi, zone, factors: factorsJson, topFactors, modelVersion: HVI_MODEL_VERSION };
 }
 
-async function recomputeAllHvi() {
+async function recomputeAllHvi({ io = null } = {}) {
   const habitations = await Habitation.findAll({ attributes: ['id'] });
   const results = [];
   for (const h of habitations) {
     // Sequential to keep DB load predictable at hackathon-demo scale.
     // eslint-disable-next-line no-await-in-loop
-    results.push(await computeHviForHabitation(h.id));
+    results.push(await computeHviForHabitation(h.id, { io }));
   }
   return results;
 }

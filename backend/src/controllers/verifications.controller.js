@@ -55,7 +55,7 @@ async function verifyReport(req, res) {
   // Update" workflow: previously nothing ever triggered a recompute here.
   let riskUpdate = null;
   if (decision === VERIFICATION_DECISIONS.VERIFIED) {
-    const results = await recomputeAllHvi();
+    const results = await recomputeAllHvi({ io });
     riskUpdate = { count: results.length, results };
     if (io) io.emit('risk:recalculated', { count: results.length, at: new Date().toISOString(), trigger: 'verification', reportId: report.id });
   }

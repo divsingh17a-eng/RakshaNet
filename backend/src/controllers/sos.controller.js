@@ -82,6 +82,23 @@ async function updateSosStatus(req, res) {
   const io = req.app.get('io');
   if (io) io.emit('sos:updated', alert);
 
+  // Notify the person who actually triggered the SOS - this is the one
+  // update they most need to see even if their app is closed, which is
+  // exactly what raiseAlert's push delivery is for.
+  const statusMessage = {
+    acknowledged: 'Your SOS has been acknowledged. Help is being coordinated.',
+    dispatched: 'Responders are on their way to your location.',
+    resolved: 'Your SOS has been marked resolved.',
+    false_alarm: 'Your SOS was marked as a false alarm.'
+  };
+  await raiseAlert({
+    recipientId: alert.reporterId,
+    type: ALERT_TYPES.SOS,
+    title: 'SOS Update',
+    message: statusMessage[status] || `Your SOS status changed to ${status}.`,
+    io
+  });
+
   res.json({ success: true, alert });
 }
 

@@ -20,6 +20,7 @@
     "cors": "^2.8.5",
     "docx": "^9.0.2",
     "dotenv": "^16.4.5",
+    "expo-server-sdk": "^3.15.0",
     "express": "^4.19.2",
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^7.2.0",
