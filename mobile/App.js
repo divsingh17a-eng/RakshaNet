@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator, BackHandler, Platform, Pressable, StatusBar as RNStatusBar, StyleSheet, Text, View
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { WebView } from 'react-native-webview';
 import * as SplashScreen from 'expo-splash-screen';
@@ -96,8 +98,16 @@ export default function App() {
   );
 }
 
+// Android renders edge-to-edge by default on recent Expo/RN versions - the
+// WebView content draws full-screen and the system status bar (clock/wifi/
+// battery) floats on top of it rather than reserving its own space, which
+// clipped the app's own header text underneath it. Reserve that space
+// manually on Android; iOS's notch/Dynamic Island is a display cutout the
+// OS already reserves room for, not an overlaid bar, so it needs nothing.
+const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? RNStatusBar.currentHeight || 24 : 0;
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#fff', paddingTop: STATUS_BAR_HEIGHT },
   webview: { flex: 1 },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
