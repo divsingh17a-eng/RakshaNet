@@ -9,12 +9,11 @@ import Button from '../../components/Button';
 const SAFE_SITE_COLOR = '#1D4ED8';
 const REPORT_COLOR = '#7C3AED';
 
-// `react-native-maps` has no web implementation (it crashes react-native-web
-// at import time with "codegenNativeComponent is not a function"). Metro
-// picks this .web.js file automatically for web builds instead of the
-// MapView-based RiskMapView.js, so the native app is completely unaffected -
-// this is a browser-preview-only fallback: the same data as a list instead
-// of pins on a map.
+// Metro picks this .web.js file automatically for web builds instead of the
+// WebView/Leaflet-based RiskMapView.js, so the native app is completely
+// unaffected - this is a browser-preview-only fallback: the same data as a
+// list instead of pins on a map (a WebView inside a web page has no benefit
+// over just rendering the list directly).
 export default function RiskMapView() {
   const [layers, setLayers] = useState(null);
   const [status, setStatus] = useState('loading');

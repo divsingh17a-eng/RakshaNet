@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { apiClient, describeApiError } from '../../api/client';
 import { ZONE_COLOR_HEX, ZONE_LABELS } from '../../constants';
 import { colors, radius, spacing, typography } from '../../theme/colors';
@@ -10,22 +10,20 @@ import Button from '../../components/Button';
 const SAFE_SITE_COLOR = '#1D4ED8';
 const REPORT_COLOR = '#7C3AED';
 
-const INDIA_DEFAULT_REGION = {
-  latitude: 20.5937,
-  longitude: 78.9629,
-  latitudeDelta: 8,
-  longitudeDelta: 8
-};
+const INDIA_DEFAULT_CENTER = { lat: 20.5937, lng: 78.9629, zoom: 5 };
 
 function coords(entity) {
   const c = entity?.location?.coordinates;
   if (!Array.isArray(c) || c.length < 2) return null;
-  return { latitude: c[1], longitude: c[0] };
+  return { lat: c[1], lng: c[0] };
 }
 
-// Read-only risk map shared by Citizen ("Nearby Risk Map") and Volunteer
-// ("Risk Map") - deliberately has no operational controls (relocation
-// approval etc. is web Command Center / officer-only per PRD sec.10).
+// Renders the map as a WebView running Leaflet + OpenStreetMap tiles instead
+// of react-native-maps/Google Maps: Google requires a billing-enabled Cloud
+// project and an API key just to render tiles, which is real friction for a
+// free hackathon build. Leaflet + OSM needs neither - zero setup, zero cost,
+// same pins-on-a-map result. Marker taps come back over postMessage and open
+// the same detail modal react-native-maps would have.
 export default function RiskMapView() {
   const [layers, setLayers] = useState(null);
   const [status, setStatus] = useState('loading'); // loading | ready | error
@@ -48,67 +46,39 @@ export default function RiskMapView() {
     load();
   }, [load]);
 
-  if (status === 'loading') return <LoadingState label="Loading risk map..." />;
-  if (status === 'error') return <ErrorState message={errorMessage} onRetry={load} />;
-
   const habitations = layers?.habitations || [];
   const safeSites = layers?.safeSites || [];
   const hazardReports = layers?.hazardReports || [];
-  const isEmpty = habitations.length === 0 && safeSites.length === 0 && hazardReports.length === 0;
 
+  const html = useMemo(() => buildMapHtml({ habitations, safeSites, hazardReports }), [habitations, safeSites, hazardReports]);
+
+  const handleMessage = useCallback((event) => {
+    try {
+      const { kind, id } = JSON.parse(event.nativeEvent.data);
+      const list = kind === 'habitation' ? habitations : kind === 'safeSite' ? safeSites : hazardReports;
+      const data = list.find((item) => item.id === id);
+      if (data) setSelected({ kind, data });
+    } catch {
+      // Ignore malformed messages - the map still works.
+    }
+  }, [habitations, safeSites, hazardReports]);
+
+  if (status === 'loading') return <LoadingState label="Loading risk map..." />;
+  if (status === 'error') return <ErrorState message={errorMessage} onRetry={load} />;
+
+  const isEmpty = habitations.length === 0 && safeSites.length === 0 && hazardReports.length === 0;
   if (isEmpty) {
     return <EmptyState icon="🗺️" title="No map data yet" message="Habitations and safe sites will appear here once seeded." actionLabel="Retry" onAction={load} />;
   }
 
-  const firstPoint = coords(habitations[0]) || coords(safeSites[0]) || coords(hazardReports[0]);
-  const initialRegion = firstPoint ? { ...firstPoint, latitudeDelta: 1.2, longitudeDelta: 1.2 } : INDIA_DEFAULT_REGION;
-
   return (
     <View style={styles.container}>
-      <MapView
+      <WebView
+        source={{ html }}
         style={StyleSheet.absoluteFillObject}
-        initialRegion={initialRegion}
-        showsUserLocation
-        showsMyLocationButton={Platform.OS === 'android'}
-      >
-        {habitations.map((h) => {
-          const c = coords(h);
-          if (!c) return null;
-          const color = ZONE_COLOR_HEX[h.currentZone] || ZONE_COLOR_HEX.green;
-          return (
-            <Marker
-              key={`hab-${h.id}`}
-              coordinate={c}
-              pinColor={color}
-              onPress={() => setSelected({ kind: 'habitation', data: h })}
-            />
-          );
-        })}
-        {safeSites.map((s) => {
-          const c = coords(s);
-          if (!c) return null;
-          return (
-            <Marker
-              key={`site-${s.id}`}
-              coordinate={c}
-              pinColor={SAFE_SITE_COLOR}
-              onPress={() => setSelected({ kind: 'safeSite', data: s })}
-            />
-          );
-        })}
-        {hazardReports.map((r) => {
-          const c = coords(r);
-          if (!c) return null;
-          return (
-            <Marker
-              key={`report-${r.id}`}
-              coordinate={c}
-              pinColor={REPORT_COLOR}
-              onPress={() => setSelected({ kind: 'report', data: r })}
-            />
-          );
-        })}
-      </MapView>
+        onMessage={handleMessage}
+        originWhitelist={['*']}
+      />
 
       <Legend />
 
@@ -122,6 +92,58 @@ export default function RiskMapView() {
       </Modal>
     </View>
   );
+}
+
+// Builds a self-contained HTML document: Leaflet from a CDN, OpenStreetMap
+// raster tiles (no key required), and one circle marker per entity colored
+// to match the legend. Rebuilt only when the underlying data changes (see
+// useMemo above), not on every render.
+function buildMapHtml({ habitations, safeSites, hazardReports }) {
+  const points = [
+    ...habitations.map((h) => ({ ...coords(h), kind: 'habitation', id: h.id, color: ZONE_COLOR_HEX[h.currentZone] || ZONE_COLOR_HEX.green })),
+    ...safeSites.map((s) => ({ ...coords(s), kind: 'safeSite', id: s.id, color: SAFE_SITE_COLOR })),
+    ...hazardReports.map((r) => ({ ...coords(r), kind: 'report', id: r.id, color: REPORT_COLOR }))
+  ].filter((p) => p.lat != null && p.lng != null);
+
+  const first = points[0];
+  const center = first ? { lat: first.lat, lng: first.lng, zoom: 9 } : INDIA_DEFAULT_CENTER;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const points = ${JSON.stringify(points)};
+    const map = L.map('map').setView([${center.lat}, ${center.lng}], ${center.zoom});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    points.forEach((p) => {
+      const marker = L.circleMarker([p.lat, p.lng], {
+        radius: 9,
+        color: '#FFFFFF',
+        weight: 2,
+        fillColor: p.color,
+        fillOpacity: 0.9
+      }).addTo(map);
+      marker.on('click', () => {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ kind: p.kind, id: p.id }));
+      });
+    });
+  </script>
+</body>
+</html>`;
 }
 
 function PinDetails({ item }) {
