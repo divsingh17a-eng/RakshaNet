@@ -1,4 +1,5 @@
 require('express-async-errors');
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -39,6 +40,20 @@ function createApp() {
       })
     );
   }
+
+  // Serves the local-disk fallback from upload.service.js (used when no
+  // Cloudinary/S3 credentials are configured). helmet's default
+  // Cross-Origin-Resource-Policy: same-origin would otherwise block the web
+  // app (a different origin, on Vercel) from loading these images - relaxed
+  // only for this one path.
+  app.use(
+    '/uploads',
+    (req, res, next) => {
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+      next();
+    },
+    express.static(path.join(__dirname, '../uploads'))
+  );
 
   app.use('/api', routes);
 

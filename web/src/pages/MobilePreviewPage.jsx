@@ -874,6 +874,19 @@ function MyReportsScreen({ onBack, onOpenThread }) {
             </div>
             <p className="mt-1 text-xs text-slate-500">Severity {r.severity}/5 · {new Date(r.reportedAt).toLocaleDateString()}</p>
             {r.description && <p className="mt-1 text-xs text-slate-600">{r.description}</p>}
+            {r.media?.length > 0 && (
+              <div className="mt-2 flex gap-1.5">
+                {r.media.map((m) => (
+                  <a key={m.id || m.url} href={m.url} target="_blank" rel="noreferrer">
+                    <img
+                      src={m.metadata?.thumbnailUrl || m.url}
+                      alt="Your evidence"
+                      className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
+                    />
+                  </a>
+                ))}
+              </div>
+            )}
             <div className="mt-2 flex items-center gap-1.5">
               <button
                 onClick={() => onOpenThread(r.id)}

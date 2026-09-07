@@ -132,6 +132,7 @@ function VerifyModal({ report, onClose, onVerified }) {
           </div>
         )}
         {report.description && <p className="rounded-md bg-slate-50 p-2 text-xs text-slate-600">{report.description}</p>}
+        <MediaGallery media={report.media} />
         <ModerationFlags moderation={report.moderation} verbose />
         <RelatedReportsSection related={related} />
         {report.location?.coordinates && (
@@ -181,6 +182,48 @@ function VerifyModal({ report, onClose, onVerified }) {
         </div>
       </div>
     </Modal>
+  );
+}
+
+// Evidence photos/videos attached to the report (backend/src/services/upload.service.js) -
+// the queue list only showed a "2 media files" count before; this actually
+// renders them so the officer can look at the evidence, not just its count.
+function MediaGallery({ media }) {
+  const [lightbox, setLightbox] = useState(null);
+  if (!media || media.length === 0) return null;
+
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-medium text-slate-600">📎 {media.length} evidence file{media.length === 1 ? '' : 's'}</p>
+      <div className="flex flex-wrap gap-2">
+        {media.map((m) => (
+          <button
+            key={m.id || m.url}
+            type="button"
+            onClick={() => setLightbox(m)}
+            className="h-16 w-16 overflow-hidden rounded-lg border border-slate-200 bg-slate-100"
+          >
+            {m.type === 'video' ? (
+              <video src={m.url} className="h-full w-full object-cover" muted />
+            ) : (
+              <img src={m.metadata?.thumbnailUrl || m.url} alt="Evidence" className="h-full w-full object-cover" />
+            )}
+          </button>
+        ))}
+      </div>
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setLightbox(null)}
+        >
+          {lightbox.type === 'video' ? (
+            <video src={lightbox.url} controls autoPlay className="max-h-full max-w-full rounded-lg" />
+          ) : (
+            <img src={lightbox.url} alt="Evidence full size" className="max-h-full max-w-full rounded-lg" />
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1,11 +1,13 @@
 import { apiClient, withColdStartRetry } from './client';
 
-// POST /api/auth/otp/request - self-registers as Citizen on first use.
+// POST /api/auth/otp/request - self-registers on first use as `role`
+// (backend/src/controllers/auth.controller.js only honors this on a brand
+// new phone number - an existing account's role is never changed by it).
 // Wrapped in withColdStartRetry: this is usually the very first request the
 // app makes, so it's the one most likely to land while Render is still
 // waking a sleeping free-tier backend up.
-export async function requestOtp(phone) {
-  const { data } = await withColdStartRetry(() => apiClient.post('/auth/otp/request', { phone }));
+export async function requestOtp(phone, role) {
+  const { data } = await withColdStartRetry(() => apiClient.post('/auth/otp/request', { phone, role }));
   return data;
 }
 

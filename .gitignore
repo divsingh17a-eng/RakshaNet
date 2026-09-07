@@ -16,6 +16,10 @@ build/
 .expo-shared/
 web-build/
 
+# Local-disk fallback for photo/video uploads (backend/src/services/upload.service.js)
+# - never persisted to git, and lost on every Render redeploy/restart anyway.
+backend/uploads/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*

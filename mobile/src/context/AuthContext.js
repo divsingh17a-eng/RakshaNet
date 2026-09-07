@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
     })();
   }, []);
 
-  const requestOtp = useCallback(async (phone) => apiRequestOtp(phone), []);
+  const requestOtp = useCallback(async (phone, role) => apiRequestOtp(phone, role), []);
 
   const verifyOtp = useCallback(async (phone, code) => {
     const { accessToken, user: verifiedUser } = await apiVerifyOtp(phone, code);

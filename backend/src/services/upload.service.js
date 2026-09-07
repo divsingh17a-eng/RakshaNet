@@ -1,8 +1,15 @@
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 const env = require('../config/env');
 const logger = require('../config/logger');
+
+// Served by app.js at GET /uploads/<filename> - the fallback used when no
+// Cloudinary/S3 credentials are configured. NOTE: Render's filesystem is
+// ephemeral, so these files are lost on every redeploy/restart - fine for a
+// live demo, not for real persistence. Swap in real credentials for that.
+const LOCAL_UPLOAD_DIR = path.join(__dirname, '../../uploads');
 
 const storage = multer.memoryStorage();
 
@@ -54,13 +61,17 @@ async function uploadMedia(file) {
     return { url, thumbnailUrl: url, sizeBytes: file.size, mimeType: file.mimetype };
   }
 
-  logger.warn('No media storage provider configured - returning inline placeholder URL');
-  return {
-    url: `data:${file.mimetype};base64,${file.buffer.toString('base64').slice(0, 100)}...(local-dev-placeholder)`,
-    thumbnailUrl: null,
-    sizeBytes: file.size,
-    mimeType: file.mimetype
-  };
+  // No cloud provider configured - write to local disk and serve it back via
+  // GET /uploads/<filename> (see app.js). Actually renders in an <img>,
+  // unlike the truncated base64 placeholder this replaces, which was never
+  // valid image data.
+  fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
+  const ext = path.extname(file.originalname) || '.jpg';
+  const filename = `${crypto.randomUUID()}${ext}`;
+  fs.writeFileSync(path.join(LOCAL_UPLOAD_DIR, filename), file.buffer);
+  logger.warn(`No media storage provider configured - saved '${filename}' to local disk (lost on next redeploy/restart)`);
+  const url = `${env.apiBaseUrl}/uploads/${filename}`;
+  return { url, thumbnailUrl: url, sizeBytes: file.size, mimeType: file.mimetype };
 }
 
 module.exports = { upload, uploadMedia };

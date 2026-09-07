@@ -5,10 +5,19 @@ import Button from '../../components/Button';
 import { colors, radius, spacing, typography } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { describeApiError } from '../../api/client';
+import { ROLES } from '../../constants';
+
+const ROLE_OPTIONS = [
+  { value: ROLES.CITIZEN, label: 'Citizen' },
+  { value: ROLES.VOLUNTEER, label: 'Volunteer' }
+];
 
 export default function PhoneEntryScreen({ navigation }) {
   const { requestOtp } = useAuth();
   const [phone, setPhone] = useState('');
+  // Only applies on a brand-new phone number's first sign-up - an existing
+  // account's role never changes here (see backend/src/controllers/auth.controller.js).
+  const [role, setRole] = useState(ROLES.CITIZEN);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -25,14 +34,14 @@ export default function PhoneEntryScreen({ navigation }) {
       // configured on the backend - see backend/src/services/otp.service.js.
       // Passed through so OtpVerifyScreen can auto-fill it instead of
       // sending the user to hunt for it in a backend console they can't see.
-      const result = await requestOtp(trimmed);
+      const result = await requestOtp(trimmed, role);
       navigation.navigate('OtpVerify', { phone: trimmed, devCode: result?.devCode });
     } catch (err) {
       setError(describeApiError(err).message);
     } finally {
       setIsSubmitting(false);
     }
-  }, [phone, requestOtp, navigation]);
+  }, [phone, role, requestOtp, navigation]);
 
   return (
     <Screen>
@@ -51,6 +60,19 @@ export default function PhoneEntryScreen({ navigation }) {
           onChangeText={setPhone}
         />
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <Text style={[styles.label, { marginTop: spacing.md }]}>I am a...</Text>
+        <View style={styles.roleRow}>
+          {ROLE_OPTIONS.map((opt) => (
+            <Text
+              key={opt.value}
+              onPress={() => setRole(opt.value)}
+              style={[styles.roleOption, role === opt.value && styles.roleOptionActive]}
+            >
+              {opt.label}
+            </Text>
+          ))}
+        </View>
 
         <Button title="Send OTP" large onPress={handleContinue} loading={isSubmitting} style={{ marginTop: spacing.lg }} />
 
@@ -79,5 +101,22 @@ const styles = StyleSheet.create({
     color: colors.text
   },
   error: { ...typography.small, color: colors.danger, marginTop: spacing.xs },
-  hint: { ...typography.small, color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg }
+  hint: { ...typography.small, color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg },
+  roleRow: { flexDirection: 'row', gap: spacing.sm },
+  roleOption: {
+    ...typography.bodyBold,
+    flex: 1,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.textMuted,
+    overflow: 'hidden'
+  },
+  roleOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+    color: '#FFFFFF'
+  }
 });
