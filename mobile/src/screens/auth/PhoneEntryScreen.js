@@ -21,8 +21,12 @@ export default function PhoneEntryScreen({ navigation }) {
     setError('');
     setIsSubmitting(true);
     try {
-      await requestOtp(trimmed);
-      navigation.navigate('OtpVerify', { phone: trimmed });
+      // devCode only comes back when no real SMS gateway (Twilio) is
+      // configured on the backend - see backend/src/services/otp.service.js.
+      // Passed through so OtpVerifyScreen can auto-fill it instead of
+      // sending the user to hunt for it in a backend console they can't see.
+      const result = await requestOtp(trimmed);
+      navigation.navigate('OtpVerify', { phone: trimmed, devCode: result?.devCode });
     } catch (err) {
       setError(describeApiError(err).message);
     } finally {

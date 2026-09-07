@@ -7,9 +7,15 @@ import { useAuth } from '../../context/AuthContext';
 import { describeApiError } from '../../api/client';
 
 export default function OtpVerifyScreen({ route }) {
-  const { phone } = route.params;
+  const { phone, devCode: initialDevCode } = route.params;
   const { verifyOtp, requestOtp } = useAuth();
-  const [code, setCode] = useState('');
+  // Demo/dev mode (no Twilio configured): the backend hands the code straight
+  // back instead of sending a real SMS, so auto-fill it here rather than
+  // sending the user off to find a backend console log they don't have
+  // access to. Cleared once a real SMS gateway is configured (devCode stops
+  // coming back from the API at that point).
+  const [code, setCode] = useState(initialDevCode || '');
+  const [devCode, setDevCode] = useState(initialDevCode || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isResending, setIsResending] = useState(false);
@@ -34,8 +40,13 @@ export default function OtpVerifyScreen({ route }) {
 
   const handleResend = useCallback(async () => {
     setIsResending(true);
+    setError('');
     try {
-      await requestOtp(phone);
+      const result = await requestOtp(phone);
+      if (result?.devCode) {
+        setDevCode(result.devCode);
+        setCode(result.devCode);
+      }
     } catch (err) {
       setError(describeApiError(err).message);
     } finally {
@@ -47,7 +58,11 @@ export default function OtpVerifyScreen({ route }) {
     <Screen>
       <View style={styles.wrap}>
         <Text style={styles.title}>Enter Verification Code</Text>
-        <Text style={styles.subtitle}>Sent to {phone}. In the demo environment, check the backend console log.</Text>
+        <Text style={styles.subtitle}>
+          {devCode
+            ? `Demo mode: no SMS gateway configured, so the code for ${phone} is auto-filled below.`
+            : `Sent to ${phone}.`}
+        </Text>
 
         <TextInput
           style={styles.input}
