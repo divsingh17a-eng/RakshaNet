@@ -50,7 +50,11 @@ export default function PhoneEntryScreen({ navigation }) {
 
         <Button title="Send OTP" large onPress={handleContinue} loading={isSubmitting} style={{ marginTop: spacing.lg }} />
 
-        <Text style={styles.hint}>No password needed. We'll text you a one-time code.</Text>
+        <Text style={styles.hint}>
+          {isSubmitting
+            ? "Connecting - this can take up to a minute the first time if the server is waking up."
+            : "No password needed. We'll text you a one-time code."}
+        </Text>
       </View>
     </Screen>
   );

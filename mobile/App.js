@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { NetworkProvider } from './src/context/NetworkContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { updateMe } from './src/api/auth';
+import { pingBackend } from './src/api/client';
 import { ROLES } from './src/constants';
 
 // RakshaNet mobile - one shared native app for Citizen and Volunteer roles
@@ -84,6 +85,14 @@ function PushNotificationManager() {
 }
 
 export default function App() {
+  // Best-effort: start waking a sleeping Render free-tier backend the moment
+  // the app opens, before the user even reaches the login form. Doesn't
+  // block rendering and its result is unused - the real login request still
+  // retries on its own via withColdStartRetry either way.
+  useEffect(() => {
+    pingBackend();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

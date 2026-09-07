@@ -1,14 +1,17 @@
-import { apiClient } from './client';
+import { apiClient, withColdStartRetry } from './client';
 
 // POST /api/auth/otp/request - self-registers as Citizen on first use.
+// Wrapped in withColdStartRetry: this is usually the very first request the
+// app makes, so it's the one most likely to land while Render is still
+// waking a sleeping free-tier backend up.
 export async function requestOtp(phone) {
-  const { data } = await apiClient.post('/auth/otp/request', { phone });
+  const { data } = await withColdStartRetry(() => apiClient.post('/auth/otp/request', { phone }));
   return data;
 }
 
 // POST /api/auth/otp/verify - returns { accessToken, refreshToken, user }
 export async function verifyOtp(phone, code) {
-  const { data } = await apiClient.post('/auth/otp/verify', { phone, code });
+  const { data } = await withColdStartRetry(() => apiClient.post('/auth/otp/verify', { phone, code }));
   return data;
 }
 
