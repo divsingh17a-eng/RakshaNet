@@ -177,12 +177,6 @@ export default function LoginPage() {
             </form>
           )}
         </div>
-
-        <div className="mt-4 border-t border-slate-100 pt-4 text-center">
-          <a href="/mobile-preview" className="text-[11px] font-medium text-slate-400 hover:text-slate-600">
-            📱 Citizen or Volunteer? Try the mobile app →
-          </a>
-        </div>
       </div>
     </div>
   );
